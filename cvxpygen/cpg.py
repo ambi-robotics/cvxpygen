@@ -20,7 +20,7 @@ import copy
 import importlib
 
 from cvxpygen import utils
-from cvxpygen.utils import write_file, read_write_file, write_example_def, write_module_prot, write_module_def, \
+from cvxpygen.utils import write_file, read_write_file, write_module_prot, write_module_def, \
     write_canon_cmake, write_method, replace_cmake_data, replace_setup_data, replace_html_data
 from cvxpygen.mappings import Configuration, PrimalVariableInfo, DualVariableInfo, ConstraintInfo, \
     ParameterCanon, ParameterInfo, Canon
@@ -74,12 +74,6 @@ def generate_code(problem, code_dir='cpg_code', solver=None, solver_opts=None,
 
     sys.stdout.write('CVXPYgen finished generating code.\n')
     
-    if wrapper:
-        compile_python_module(code_dir)
-        module = importlib.import_module(f'{code_dir}.cpg_solver')
-        cpg_solve = getattr(module, 'cpg_solve')
-        problem.register_solve('CPG', cpg_solve)
-        
         
 def extract_canonicalization(problem, solver, solver_opts, enable_settings) -> Canon:
     
@@ -466,89 +460,32 @@ def write_c_code(problem: cp.Problem, configuration: Configuration,
     osqp_code_dir = os.path.join(c_dir, 'osqp_code')
     
     # write files
-    # if two-stage gradient is used, write main workspace and solve files without gradient stuff
-    if configuration.gradient_two_stage:
-        primal_solution_ptr = solver_interface.ws_ptrs.primal_solution
-        dual_solution_ptr = solver_interface.ws_ptrs.dual_solution
-        # poin to intermediate primal solution if it needs to be computed in second stage
-        if solver_interface.ret_prim_func_exists(canon_second.prim_variable_info):
-            solver_interface.ws_ptrs.primal_solution = f'gradient_{configuration.prefix}sol_x'
-        # always point to intermediate dual solution because it is always computed (summed to osqp's y) in second stage
-        solver_interface.ws_ptrs.dual_solution = f'gradient_{configuration.prefix}sol_y'
-        parameter_canon_gradient = canon_first.parameter_canon
-    else:
-        parameter_canon_gradient = None
-    write_file(os.path.join(include_dir, f'cpg_workspace.h'), 'w', 
+    parameter_canon_gradient = None
+    write_file(os.path.join(include_dir, f'{configuration.prefix}workspace.h'), 'w', 
                 getattr(utils, f'write_workspace_prot'),
                 configuration, prim_variable_info, dual_variable_info, 
                 parameter_info, parameter_canon, solver_interface, True)
     
-    write_file(os.path.join(src_dir, f'cpg_workspace.c'), 'w', 
+    write_file(os.path.join(src_dir, f'{configuration.prefix}workspace.c'), 'w', 
                 getattr(utils, f'write_workspace_def'),
                 configuration, prim_variable_info, dual_variable_info, 
                 parameter_info, parameter_canon, solver_interface, True)
-    write_file(os.path.join(include_dir, f'cpg_solve.h'), 'w', 
+    write_file(os.path.join(include_dir, f'{configuration.prefix}solve.h'), 'w', 
                 getattr(utils, f'write_solve_prot'),
                 configuration, prim_variable_info, dual_variable_info, 
                 parameter_info, parameter_canon, solver_interface, parameter_canon_gradient)
     
-    write_file(os.path.join(src_dir, f'cpg_solve.c'), 'w', 
+    write_file(os.path.join(src_dir, f'{configuration.prefix}solve.c'), 'w', 
                 getattr(utils, f'write_solve_def'),
                 configuration, prim_variable_info, dual_variable_info, 
                 parameter_info, parameter_canon, solver_interface, parameter_canon_gradient)
-    if configuration.gradient_two_stage:
-        # switch back to second-stage pointer for remainder of code generation
-        solver_interface.ws_ptrs.primal_solution = primal_solution_ptr
-        solver_interface.ws_ptrs.dual_solution = dual_solution_ptr
-    
-    if configuration.gradient:
-        if configuration.gradient_two_stage:
-            # write extra workspace files for gradient
-            write_file(os.path.join(include_dir, 'cpg_gradient_workspace.h'), 'w', 
-                    getattr(utils, 'write_workspace_prot'),
-                    configuration, canon_first.prim_variable_info, canon_first.dual_variable_info, 
-                    canon_first.parameter_info, canon_first.parameter_canon, gradient_interface, False)
-            
-            write_file(os.path.join(src_dir, 'cpg_gradient_workspace.c'), 'w', 
-                    getattr(utils, 'write_workspace_def'),
-                    configuration, canon_first.prim_variable_info, canon_first.dual_variable_info, 
-                    canon_first.parameter_info, canon_first.parameter_canon, gradient_interface, False)
-            
-            # write gradient files
-            write_file(os.path.join(include_dir, 'cpg_gradient.h'), 'w', 
-                    getattr(gradient_interface, 'write_gradient_prot'),
-                    configuration, canon_first.prim_variable_info, canon_first.dual_variable_info,
-                    canon_second.prim_variable_info, canon_second.dual_variable_info,
-                    canon_first.parameter_info, canon_first.parameter_canon, solver_interface)
-            
-            write_file(os.path.join(src_dir, 'cpg_gradient.c'), 'w', 
-                    getattr(gradient_interface, 'write_gradient_def'),
-                    configuration, canon_first.prim_variable_info, canon_first.dual_variable_info,
-                    canon_second.prim_variable_info, canon_second.dual_variable_info,
-                    canon_first.parameter_info, canon_first.parameter_canon, solver_interface)
-        else:
-            write_file(os.path.join(include_dir, 'cpg_gradient.h'), 'w', 
-                    getattr(solver_interface, 'write_gradient_prot'),
-                    configuration, prim_variable_info, dual_variable_info,
-                    None, None,
-                    parameter_info, parameter_canon, solver_interface)
-            
-            write_file(os.path.join(src_dir, 'cpg_gradient.c'), 'w', 
-                    getattr(solver_interface, 'write_gradient_def'),
-                    configuration, prim_variable_info, dual_variable_info,
-                    None, None,
-                    parameter_info, parameter_canon, solver_interface)
-    
-    write_file(os.path.join(src_dir, 'cpg_example.c'), 'w', 
-               write_example_def, 
-               configuration, prim_variable_info, dual_variable_info, parameter_info)
-    
-    write_file(os.path.join(cpp_dir, 'include', 'cpg_module.hpp'), 'w',
+   
+    write_file(os.path.join(cpp_dir, 'include', f'{configuration.prefix[:-1]}.hpp'), 'w',
                write_module_prot,
                configuration, parameter_info, prim_variable_info, 
                dual_variable_info, solver_interface, gradient_interface)
 
-    write_file(os.path.join(cpp_dir, 'src', 'cpg_module.cpp'), 'w',
+    write_file(os.path.join(cpp_dir, 'src', f'{configuration.prefix[:-1]}.cpp'), 'w',
                write_module_def,
                configuration, prim_variable_info, dual_variable_info, 
                parameter_info, solver_interface, gradient_interface)
@@ -568,7 +505,7 @@ def write_c_code(problem: cp.Problem, configuration: Configuration,
                    write_canon_cmake,
                    'osqp', gradient_interface)
 
-    write_file(os.path.join(configuration.code_dir, 'cpg_solver.py'), 'w',
+    write_file(os.path.join(configuration.code_dir, f'{configuration.prefix[:-1]}.py'), 'w',
                write_method,
                configuration, prim_variable_info, dual_variable_info, 
                parameter_info, solver_interface, gradient_interface)
@@ -701,15 +638,6 @@ def handle_sparsity(p_prob: cp.Problem) -> None:
                         warnings.warn(f'Ignoring nonzero value outside of sparsity pattern for parameter {param.name()}!')
                         param.value[i, j] = 0
 
-
-
-def compile_python_module(code_dir: str):
-    sys.stdout.write('Compiling python wrapper with CVXPYgen ... \n')
-    p_dir = os.getcwd()
-    os.chdir(code_dir)
-    call([sys.executable, 'setup.py', '--quiet', 'build_ext', '--inplace'])
-    os.chdir(p_dir)
-    sys.stdout.write("CVXPYgen finished compiling python wrapper.\n")
 
 
 def create_folder_structure(code_dir: str):

@@ -40,10 +40,10 @@ setup(
     install_requires=[
         'cmake >= 3.5',
         'cvxpy >= 1.6.1',
-        'pybind11 >= 2.8',
+        'nanobind >= 2.0',
         'osqp >= 1.0.0b3',
         'ecos >= 2.0.14',
-        'clarabel >= 0.6.0',
+        'clarabel >= 0.10.0',
         'scipy >= 1.13.1',
         'numpy >= 1.26.0',
     ],

@@ -50,4 +50,6 @@ include cvxpygen/solvers/Clarabel.cpp/Clarabel.rs/src/solver/core/kktsolvers/dir
 include cvxpygen/solvers/Clarabel.cpp/Clarabel.rs/src/solver/implementations/*.rs
 include cvxpygen/solvers/Clarabel.cpp/Clarabel.rs/src/solver/implementations/default/*.rs
 include cvxpygen/solvers/Clarabel.cpp/Clarabel.rs/src/solver/utils/*.rs
+include cvxpygen/solvers/Clarabel.cpp/Clarabel.rs/src/stdio/*.rs
 include cvxpygen/solvers/Clarabel.cpp/Clarabel.rs/src/timers/*.rs
+include cvxpygen/solvers/Clarabel.cpp/Clarabel.rs/src/utils/*.rs
