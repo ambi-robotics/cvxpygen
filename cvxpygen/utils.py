@@ -11,23 +11,24 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
+from datetime import datetime
+
 import numpy as np
 import scipy.sparse as sp
-from datetime import datetime
 
 
 def write_file(path, mode, function, *args):
     """Write data to a file using a specific utility function."""
     with open(path, mode) as file:
         function(file, *args)
-    
+
 
 def read_write_file(path, function, *args):
     """Read data from a file, process it, and write back."""
-    with open(path, 'r') as file:
+    with open(path, "r") as file:
         data = file.read()
     data = function(data, *args)
-    with open(path, 'w') as file:
+    with open(path, "w") as file:
         file.write(data)
 
 
@@ -41,80 +42,80 @@ def multiple_replace(text, replacements):
 def cut_from_expr(text, expr):
     """Cut file contents from a specific expression"""
     idx = text.find(expr)
-    
+
     if idx != -1:
         return text[:idx]
     else:
         return text
-    
-    
-def type_to_cast(typ, qualifier=''):
+
+
+def type_to_cast(typ, qualifier=""):
     """Convert type to C type cast"""
-    
-    qualifier = '' if qualifier == '' else f'{qualifier}_'
-    
-    if typ == 'float':
-        return f'(cpg_{qualifier}float *) '
-    elif typ == 'int':
-        return f'(cpg_{qualifier}int *) '
+
+    qualifier = "" if qualifier == "" else f"{qualifier}_"
+
+    if typ == "float":
+        return f"(cpg_{qualifier}float *) "
+    elif typ == "int":
+        return f"(cpg_{qualifier}int *) "
     else:
-        return ''
+        return ""
 
 
-def write_vec_def(f, vec, name, typ, qualifier=''):
+def write_vec_def(f, vec, name, typ, qualifier=""):
     """
     Write vector to file
     """
-    
-    qualifier = '' if qualifier == '' else f'{qualifier}_'
-    if typ == 'cpg_float':
-        typ = f'cpg_{qualifier}float'
-    elif typ == 'cpg_int':
-        typ = f'cpg_{qualifier}int'
-    
-    f.write(f'{typ} {name}[{len(vec)}] = {{\n')
+
+    qualifier = "" if qualifier == "" else f"{qualifier}_"
+    if typ == "cpg_float":
+        typ = f"cpg_{qualifier}float"
+    elif typ == "cpg_int":
+        typ = f"cpg_{qualifier}int"
+
+    f.write(f"{typ} {name}[{len(vec)}] = {{\n")
 
     # Write vector components
     for i in range(len(vec)):
-        if 'float' in typ:
-            f.write(f'({typ})%.20f,\n' % vec[i])
+        if "float" in typ:
+            f.write(f"({typ})%.20f,\n" % vec[i])
         else:
-            f.write(f'{vec[i]},\n')
+            f.write(f"{vec[i]},\n")
 
-    f.write('};\n')
+    f.write("};\n")
 
 
 def write_vec_prot(f, vec, name, typ):
     """
     Write vector to file
     """
-    f.write(f'extern {typ} {name}[{len(vec)}];\n')
+    f.write(f"extern {typ} {name}[{len(vec)}];\n")
 
 
-def write_mat_def(f, mat, name, qualifier=''):
+def write_mat_def(f, mat, name, qualifier=""):
     """
     Write sparse matrix (scipy compressed sparse column) to file
     """
-    
-    qualifier = '' if qualifier == '' else f'{qualifier}_'
-    
-    write_vec_def(f, mat.indices, name + '_i', f'cpg_{qualifier}int')
-    write_vec_def(f, mat.indptr, name + '_p', f'cpg_{qualifier}int')
-    write_vec_def(f, mat.data, name + '_x', f'cpg_{qualifier}float')
 
-    f.write(f'cpg_{qualifier}csc {name} = {{')
-    f.write(f'{name}_p, ')
-    f.write(f'{name}_i, ')
-    f.write(f'{name}_x, {mat.nnz}}};\n')
+    qualifier = "" if qualifier == "" else f"{qualifier}_"
+
+    write_vec_def(f, mat.indices, name + "_i", f"cpg_{qualifier}int")
+    write_vec_def(f, mat.indptr, name + "_p", f"cpg_{qualifier}int")
+    write_vec_def(f, mat.data, name + "_x", f"cpg_{qualifier}float")
+
+    f.write(f"cpg_{qualifier}csc {name} = {{")
+    f.write(f"{name}_p, ")
+    f.write(f"{name}_i, ")
+    f.write(f"{name}_x, {mat.nnz}}};\n")
 
 
-def write_L_def(f, N, name, qualifier=''):
+def write_L_def(f, N, name, qualifier=""):
     """
     Write sparse lower triangular matrix (scipy compressed sparse column) to file
     and allocate enough memory for maximum fill-in of the lower triangle
     where the diagonal is implicitly ones
     """
-    
+
     # create scipy csc matrix with all ones below the diagonal, without the diagonal
     indices = []
     data = []
@@ -132,7 +133,7 @@ def write_mat_prot(f, mat, name):
     """
     Write sparse matrix (scipy compressed sparse column) to file
     """
-    f.write(f'extern cpg_csc {name};\n')
+    f.write(f"extern cpg_csc {name};\n")
 
 
 def write_dense_mat_def(f, mat, name):
@@ -140,14 +141,14 @@ def write_dense_mat_def(f, mat, name):
     Write dense matrix to file
     """
 
-    f.write(f'cpg_float {name}[{mat.size}] = {{\n')
+    f.write(f"cpg_float {name}[{mat.size}] = {{\n")
 
     # represent matrix as vector (Fortran style)
     for j in range(mat.shape[1]):
         for i in range(mat.shape[0]):
-            f.write('(cpg_float)%.20f,\n' % mat[i, j])
+            f.write("(cpg_float)%.20f,\n" % mat[i, j])
 
-    f.write('};\n')
+    f.write("};\n")
 
 
 def write_dense_mat_prot(f, mat, name):
@@ -155,7 +156,7 @@ def write_dense_mat_prot(f, mat, name):
     Write dense matrix to file
     """
 
-    f.write(f'extern cpg_float cpg_{name}[{mat.size}];\n')
+    f.write(f"extern cpg_float cpg_{name}[{mat.size}];\n")
 
 
 def write_description(f, file_type, content):
@@ -163,16 +164,15 @@ def write_description(f, file_type, content):
     Timestamp and file content to beginning of file
     """
 
-    if file_type == 'py':
+    if file_type == "py":
         comment_str = '"""'
     else:
-        comment_str = '/*'
+        comment_str = "/*"
     now = datetime.now()
-    f.write(f'\n{comment_str}\n')
-    f.write(f'Auto-generated by CVXPYgen {now.strftime("on %B %d, %Y at %H:%M:%S")}.\n')
-    f.write(f'Content: {content}.\n')
-    f.write(f'{comment_str[::-1]}\n\n')
-
+    f.write(f"\n{comment_str}\n")
+    f.write(f"Auto-generated by CVXPYgen {now.strftime('on %B %d, %Y at %H:%M:%S')}.\n")
+    f.write(f"Content: {content}.\n")
+    f.write(f"{comment_str[::-1]}\n\n")
 
 
 def replace_in_file(filepath, replacements):
@@ -180,11 +180,11 @@ def replace_in_file(filepath, replacements):
     Replace strings in file
     """
 
-    with open(filepath, 'r') as f:
+    with open(filepath, "r") as f:
         t = f.read()
     for old, new in replacements:
         t = t.replace(old, new)
-    with open(filepath, 'w') as f:
+    with open(filepath, "w") as f:
         f.write(t)
 
 
@@ -194,7 +194,7 @@ def replace_inf(v):
     """
 
     # check if dealing with csc dict or numpy array
-    if type(v) == sp.csc_matrix:
+    if isinstance(v, sp.csc_matrix):
         sign = np.sign(v.data)
         idx = np.isinf(v.data)
         v.data[idx] = 1e30 * sign[idx]
@@ -227,8 +227,8 @@ def param_is_empty(param):
     Check if parameter is empty
     """
 
-    if type(param) == dict:
-        return param['x'].size == 0
+    if isinstance(param, dict):
+        return param["x"].size == 0
     else:
         return param.size == 0
 
@@ -253,20 +253,19 @@ def squeeze_scalar(val):
 
 
 def ldl(A):
-    
     n = A.shape[0]
     L = np.zeros_like(A)
     D = np.zeros(n)
-    
+
     for i in range(n):
         for j in range(i):
             sum_LDL = np.dot(L[i, :j], L[j, :j] * D[:j])
             L[i, j] = (A[i, j] - sum_LDL) / D[j]
-        
+
         sum_LDL = np.dot(L[i, :i], L[i, :i] * D[:i])
         D[i] = A[i, i] - sum_LDL
         L[i, i] = 1
-    
+
     return L, D
 
 
@@ -275,70 +274,83 @@ def write_problem_summary(name_to_shape, name_to_size):
     Create html code for param / variables table entries
     """
 
-    string = ''
+    string = ""
     for n, sh in name_to_shape.items():
         if sh == ():
-            shape_str = '1'
+            shape_str = "1"
         elif len(sh) == 1:
             shape_str = str(sh[0])
         else:
-            shape_str = f'{sh[0]} by {sh[1]} ({name_to_size[n]})'
-        string += f'      <tr>\n        <td><code>{n}</code></td>\n        <td>{shape_str}</td>\n      </tr>\n'
+            shape_str = f"{sh[0]} by {sh[1]} ({name_to_size[n]})"
+        string += f"      <tr>\n        <td><code>{n}</code></td>\n        <td>{shape_str}</td>\n      </tr>\n"
     return string
 
 
-def write_canonicalize_explicit(f, p_id, s, mapping, user_p_col_to_name_usp, user_p_name_to_size_usp, prefix):
+def write_canonicalize_explicit(
+    f, p_id, s, mapping, user_p_col_to_name_usp, user_p_name_to_size_usp, prefix
+):
     """
     Write function to compute canonical parameter value
     """
 
-    sign_to_str = {1: '', -1: '-'}
+    sign_to_str = {1: "", -1: "-"}
 
     for row in range(len(mapping.indptr) - 1):
-        expr = ''
+        expr = ""
         expr_is_const = True
-        data = mapping.data[mapping.indptr[row]:mapping.indptr[row + 1]]
-        columns = mapping.indices[mapping.indptr[row]:mapping.indptr[row + 1]]
-        for (datum, col) in zip(data, columns):
-            ex = '(%.20f)+' % datum
+        data = mapping.data[mapping.indptr[row] : mapping.indptr[row + 1]]
+        columns = mapping.indices[mapping.indptr[row] : mapping.indptr[row + 1]]
+        for datum, col in zip(data, columns):
+            ex = "(%.20f)+" % datum
             for user_p_col, user_name in user_p_col_to_name_usp.items():
                 if user_p_col + user_p_name_to_size_usp[user_name] > col:
                     expr_is_const = False
                     if user_p_name_to_size_usp[user_name] == 1:
                         if abs(datum) == 1:
-                            ex = f'({sign_to_str[datum]}{prefix}CPG_Params.{user_name})+'
+                            ex = (
+                                f"({sign_to_str[datum]}{prefix}CPG_Params.{user_name})+"
+                            )
                         else:
-                            ex = f'(%.20f*{prefix}CPG_Params.{user_name})+' % datum
+                            ex = f"(%.20f*{prefix}CPG_Params.{user_name})+" % datum
                     else:
                         if abs(datum) == 1:
-                            ex = f'({sign_to_str[datum]}{prefix}CPG_Params.{user_name}[%d])+' % (col - user_p_col)
+                            ex = (
+                                f"({sign_to_str[datum]}{prefix}CPG_Params.{user_name}[%d])+"
+                                % (col - user_p_col)
+                            )
                         else:
-                            ex = f'(%.20f*{prefix}CPG_Params.{user_name}[%d])+' % (datum, col - user_p_col)
+                            ex = f"(%.20f*{prefix}CPG_Params.{user_name}[%d])+" % (
+                                datum,
+                                col - user_p_col,
+                            )
                     break
             expr += ex
         expr = expr[:-1]
         if data.size > 0 and not expr_is_const:
-            if p_id == 'd':
-                f.write(f'  {prefix}Canon_Params.d = {expr};\n')
+            if p_id == "d":
+                f.write(f"  {prefix}Canon_Params.d = {expr};\n")
             else:
-                f.write(f'  {prefix}Canon_Params.{p_id}{s}[%d] = {expr};\n' % row)
+                f.write(f"  {prefix}Canon_Params.{p_id}{s}[%d] = {expr};\n" % row)
 
 
 def write_canonicalize(f, canon_name, s, mapping, prefix, prefix_params=None):
     """
     Write function to compute canonical parameter value
     """
-    
+
     if prefix_params is None:
         prefix_params = prefix
 
-    f.write(f'  for(i=0; i<{mapping.shape[0]}; i++){{\n')
-    f.write(f'    {prefix}Canon_Params.{canon_name}{s}[i] = 0;\n')
-    f.write(f'    for(j={prefix}canon_{canon_name}_map.p[i]; j<{prefix}canon_{canon_name}_map.p[i+1]; j++){{\n')
-    f.write(f'      {prefix}Canon_Params.{canon_name}{s}[i] += {prefix}canon_{canon_name}_map.x[j]*{prefix_params}params_vec[{prefix}canon_{canon_name}_map.i[j]];\n')
-    f.write(f'    }}\n')
-    f.write(f'  }}\n')
-
+    f.write(f"  for(i=0; i<{mapping.shape[0]}; i++){{\n")
+    f.write(f"    {prefix}Canon_Params.{canon_name}{s}[i] = 0;\n")
+    f.write(
+        f"    for(j={prefix}canon_{canon_name}_map.p[i]; j<{prefix}canon_{canon_name}_map.p[i+1]; j++){{\n"
+    )
+    f.write(
+        f"      {prefix}Canon_Params.{canon_name}{s}[i] += {prefix}canon_{canon_name}_map.x[j]*{prefix_params}params_vec[{prefix}canon_{canon_name}_map.i[j]];\n"
+    )
+    f.write("    }\n")
+    f.write("  }\n")
 
 
 def write_param_def(f, param, name, prefix, suffix):
@@ -347,12 +359,14 @@ def write_param_def(f, param, name, prefix, suffix):
     """
     if not param_is_empty(param):
         if name.isupper():
-            write_mat_def(f, param, f'{prefix}canon_{name}{suffix}')
-        elif name == 'd':
-            f.write(f'cpg_float {prefix}canon_d{suffix} = %.20f;\n' % replace_inf(param[0]))
+            write_mat_def(f, param, f"{prefix}canon_{name}{suffix}")
+        elif name == "d":
+            f.write(
+                f"cpg_float {prefix}canon_d{suffix} = %.20f;\n" % replace_inf(param[0])
+            )
         else:
-            write_vec_def(f, param, f'{prefix}canon_{name}{suffix}', 'cpg_float')
-        f.write('\n')
+            write_vec_def(f, param, f"{prefix}canon_{name}{suffix}", "cpg_float")
+        f.write("\n")
 
 
 def write_param_prot(f, param, name, prefix, suffix):
@@ -361,11 +375,11 @@ def write_param_prot(f, param, name, prefix, suffix):
     """
     if not param_is_empty(param):
         if name.isupper():
-            write_mat_prot(f, param, f'{prefix}canon_{name}{suffix}')
-        elif name == 'd':
-            f.write(f'extern cpg_float {prefix}canon_d{suffix};\n')
+            write_mat_prot(f, param, f"{prefix}canon_{name}{suffix}")
+        elif name == "d":
+            f.write(f"extern cpg_float {prefix}canon_d{suffix};\n")
         else:
-            write_vec_prot(f, param, f'{prefix}canon_{name}{suffix}', 'cpg_float')
+            write_vec_prot(f, param, f"{prefix}canon_{name}{suffix}", "cpg_float")
 
 
 def write_struct_def(f, fields, casts, values, name, typ):
@@ -373,15 +387,15 @@ def write_struct_def(f, fields, casts, values, name, typ):
     Write structure to file
     """
 
-    f.write(f'{typ} {name} = {{\n')
+    f.write(f"{typ} {name} = {{\n")
 
     # write structure fields
     for field, cast, value in zip(fields, casts, values):
-        if value in ['0', 'SCS_NULL']:
-            cast = ''
-        f.write(f'.{field} = {cast}{value},\n')
+        if value in ["0", "SCS_NULL"]:
+            cast = ""
+        f.write(f".{field} = {cast}{value},\n")
 
-    f.write('};\n')
+    f.write("};\n")
 
 
 def write_struct_prot(f, name, typ):
@@ -389,7 +403,7 @@ def write_struct_prot(f, name, typ):
     Write structure to file
     """
 
-    f.write(f'extern {typ} {name};\n')
+    f.write(f"extern {typ} {name};\n")
 
 
 def extend_functions_if_false(pus, functions_if_false):
@@ -404,7 +418,11 @@ def extend_functions_if_false(pus, functions_if_false):
 
     for function in functions_if_false:
         extended_functions_if_false.append(function)
-        extended_functions_if_false.extend(extend_functions_if_false(pus, pus[function].update_pending_logic.functions_if_false))
+        extended_functions_if_false.extend(
+            extend_functions_if_false(
+                pus, pus[function].update_pending_logic.functions_if_false
+            )
+        )
 
     return extended_functions_if_false
 
@@ -416,23 +434,22 @@ def remove_function(functions, function_to_remove):
 
 
 def analyze_pus(pus, p_id_to_changes):
-    '''
+    """
     Analyze parameter update structure (pus) to return set of canonical update functions
     that are to be written to code without logical inter-connections and functions that
     are never called
-    '''
-    
+    """
+
     functions = set(pus.keys())
     functions_called = set(pus.keys())
     functions_secondary = []
-    
+
     for function, logic in pus.items():
-        
         up_logic = logic.update_pending_logic
         operator = up_logic.operator
         functions_if_false = extend_functions_if_false(pus, up_logic.functions_if_false)
-            
-        if operator in ['&&', '&', 'and', 'AND']:
+
+        if operator in ["&&", "&", "and", "AND"]:
             skip = False
             for p in up_logic.parameters_outdated:
                 if not p_id_to_changes.get(p, False):
@@ -440,7 +457,7 @@ def analyze_pus(pus, p_id_to_changes):
                     skip = True
             if skip:
                 continue
-        elif operator in ['||', '|', 'or', 'OR']:
+        elif operator in ["||", "|", "or", "OR"]:
             skip = True
             for p in up_logic.parameters_outdated:
                 if p_id_to_changes.get(p, False):
@@ -449,28 +466,42 @@ def analyze_pus(pus, p_id_to_changes):
                 functions_called = remove_function(functions_called, function)
                 continue
         elif operator is None:
-            if up_logic.extra_condition_operator is None and len(up_logic.parameters_outdated) == 1 and not p_id_to_changes[function]:
+            if (
+                up_logic.extra_condition_operator is None
+                and len(up_logic.parameters_outdated) == 1
+                and not p_id_to_changes[function]
+            ):
                 functions_called = remove_function(functions_called, function)
                 continue
         else:
             raise ValueError(f'Operator "{operator}" not implemented.')
-        
+
         if functions_if_false is None:
             continue
-            
+
         for f in functions_if_false:
             if f not in functions:
                 raise ValueError(f'"{f}" is not part of parameter update structure.')
         functions_secondary.extend(functions_if_false)
-                    
-    return functions_called-set(functions_secondary), functions-functions_called
+
+    return functions_called - set(functions_secondary), functions - functions_called
 
 
-operator_map = {'&&': '&&', '&': '&&', 'and': '&&', 'AND': '&&',
-                '||': '||', '|': '||', 'or': '||', 'OR': '||'}
+operator_map = {
+    "&&": "&&",
+    "&": "&&",
+    "and": "&&",
+    "AND": "&&",
+    "||": "||",
+    "|": "||",
+    "or": "||",
+    "OR": "||",
+}
 
 
-def write_update_structure(f, configuration, parameter_canon, pus, functions, functions_never_called, depth=0):
+def write_update_structure(
+    f, configuration, parameter_canon, pus, functions, functions_never_called, depth=0
+):
     """
     Recursively write logical parameter update structure to file
     """
@@ -481,92 +512,123 @@ def write_update_structure(f, configuration, parameter_canon, pus, functions, fu
     write_else = depth > 0 and len(set(functions) - set(functions_never_called)) > 0
 
     if write_else:
-        f.write(' else {\n')
+        f.write(" else {\n")
 
     for function in functions:
-
         logic = pus[function]
         up_logic = logic.update_pending_logic
-        if 'P' in up_logic.parameters_outdated and not parameter_canon.quad_obj:
-            up_logic.parameters_outdated.remove('P')
+        if "P" in up_logic.parameters_outdated and not parameter_canon.quad_obj:
+            up_logic.parameters_outdated.remove("P")
 
         if function not in functions_never_called:
-            extra_condition = f'{up_logic.extra_condition.format(prefix=configuration.prefix)} ' if up_logic.extra_condition is not None else ''
-            extra_condition_operator = f' {operator_map.get(up_logic.extra_condition_operator, "||")} ' if up_logic.extra_condition is not None and len(up_logic.parameters_outdated) > 0 else ''
-            parameters_outdated = f'{(" "+operator_map.get(up_logic.operator, "&&")+" ").join([f"{configuration.prefix}Canon_Outdated.{p}" for p in up_logic.parameters_outdated])}'
+            extra_condition = (
+                f"{up_logic.extra_condition.format(prefix=configuration.prefix)} "
+                if up_logic.extra_condition is not None
+                else ""
+            )
+            extra_condition_operator = (
+                f" {operator_map.get(up_logic.extra_condition_operator, '||')} "
+                if up_logic.extra_condition is not None
+                and len(up_logic.parameters_outdated) > 0
+                else ""
+            )
+            parameters_outdated = f"{(' ' + operator_map.get(up_logic.operator, '&&') + ' ').join([f'{configuration.prefix}Canon_Outdated.{p}' for p in up_logic.parameters_outdated])}"
 
-            f.write(f'{"  "*(depth+1)}if ({extra_condition}{extra_condition_operator}{parameters_outdated}) {{\n')
-            f.write(f'{"  "*(depth+2)}{logic.function_call.format(prefix=configuration.prefix)};\n')
-            f.write(f'{"  "*(depth+1)}}}')
+            f.write(
+                f"{'  ' * (depth + 1)}if ({extra_condition}{extra_condition_operator}{parameters_outdated}) {{\n"
+            )
+            f.write(
+                f"{'  ' * (depth + 2)}{logic.function_call.format(prefix=configuration.prefix)};\n"
+            )
+            f.write(f"{'  ' * (depth + 1)}}}")
             new_depth = depth + 1
         else:
             new_depth = depth * 1
 
-        write_update_structure(f, configuration, parameter_canon, pus, up_logic.functions_if_false, functions_never_called, new_depth)
+        write_update_structure(
+            f,
+            configuration,
+            parameter_canon,
+            pus,
+            up_logic.functions_if_false,
+            functions_never_called,
+            new_depth,
+        )
 
         if function not in functions_never_called:
-            f.write('\n')
+            f.write("\n")
 
     if write_else:
-        f.write(f'{"  " * depth}}}')
+        f.write(f"{'  ' * depth}}}")
 
 
-
-def write_workspace_def(f, configuration, variable_info, dual_variable_info, parameter_info, parameter_canon, solver_interface, full=True):
-
+def write_workspace_def(
+    f,
+    configuration,
+    variable_info,
+    dual_variable_info,
+    parameter_info,
+    parameter_canon,
+    solver_interface,
+    full=True,
+):
     if full:
         prefix = configuration.prefix
     else:
-        prefix = f'gradient_{configuration.prefix}'
+        prefix = f"gradient_{configuration.prefix}"
 
-    write_description(f, 'c', 'Variable definitions')
+    write_description(f, "c", "Variable definitions")
     f.write(f'#include "{configuration.prefix}workspace.h"\n')
 
     if full and configuration.unroll:
-        f.write('\n// User-defined parameters\n')
+        f.write("\n// User-defined parameters\n")
         user_casts = []
         user_values = []
         names = list(parameter_info.writable.keys())
         for name in names:
             value = parameter_info.writable[name]
             if is_mathematical_scalar(value):
-                user_casts.append('')
-                user_values.append('%.20f' % value)
+                user_casts.append("")
+                user_values.append("%.20f" % value)
             else:
-                write_vec_def(f, value, f'{prefix}{name}', 'cpg_float')
-                f.write('\n')
-                user_casts.append('(cpg_float *) ')
-                user_values.append(f'&{prefix}{name}')
-        f.write('// Struct containing all user-defined parameters\n')
-        write_struct_def(f, names, user_casts, user_values, f'{prefix}Params', 'CPG_Params_t')
-        f.write('\n')
+                write_vec_def(f, value, f"{prefix}{name}", "cpg_float")
+                f.write("\n")
+                user_casts.append("(cpg_float *) ")
+                user_values.append(f"&{prefix}{name}")
+        f.write("// Struct containing all user-defined parameters\n")
+        write_struct_def(
+            f, names, user_casts, user_values, f"{prefix}Params", "CPG_Params_t"
+        )
+        f.write("\n")
     else:
         if full:
-            f.write('\n// Vector containing flattened user-defined parameters\n')
-            write_vec_def(f, parameter_info.flat_usp, f'{prefix}params_vec', 'cpg_float')
-        f.write('\n// Sparse mappings from user-defined to canonical parameters\n')
+            f.write("\n// Vector containing flattened user-defined parameters\n")
+            write_vec_def(
+                f, parameter_info.flat_usp, f"{prefix}params_vec", "cpg_float"
+            )
+        f.write("\n// Sparse mappings from user-defined to canonical parameters\n")
         for p_id, mapping in parameter_canon.p_id_to_mapping.items():
             if parameter_canon.p_id_to_changes[p_id]:
-                write_mat_def(f, mapping, f'{prefix}canon_{p_id}_map')
-                f.write('\n')
+                write_mat_def(f, mapping, f"{prefix}canon_{p_id}_map")
+                f.write("\n")
 
     p_ids = list(parameter_canon.p.keys())
     canon_casts = []
-    f.write('// Canonical parameters\n')
+    f.write("// Canonical parameters\n")
     for p_id in p_ids:
         p = parameter_canon.p[p_id]
-        if p_id == 'd':
-            canon_casts.append('')
+        if p_id == "d":
+            canon_casts.append("")
         else:
-            write_param_def(f, replace_inf(p), p_id, prefix, '')
+            write_param_def(f, replace_inf(p), p_id, prefix, "")
             if solver_interface.inmemory_preconditioning:
-                write_param_def(f, replace_inf(p), p_id, prefix, '_conditioning')
+                write_param_def(f, replace_inf(p), p_id, prefix, "_conditioning")
             if p_id.isupper():
-                canon_casts.append('')
+                canon_casts.append("")
             else:
-                canon_casts.append('(cpg_float *) ')
+                canon_casts.append("(cpg_float *) ")
 
-    f.write('// Struct containing canonical parameters\n')
+    f.write("// Struct containing canonical parameters\n")
 
     struct_values = []
     struct_values_conditioning = []
@@ -577,506 +639,717 @@ def write_workspace_def(f, configuration, variable_info, dual_variable_info, par
         else:
             length = len(p)
         if length == 0:
-            struct_values.append('0')
+            struct_values.append("0")
             if solver_interface.inmemory_preconditioning:
-                struct_values_conditioning.append('0')
-        elif p_id=='d':
-            struct_values.append('%.20f' % squeeze_scalar(p))
+                struct_values_conditioning.append("0")
+        elif p_id == "d":
+            struct_values.append("%.20f" % squeeze_scalar(p))
             if solver_interface.inmemory_preconditioning:
-                struct_values_conditioning.append('%.20f' % squeeze_scalar(p))
+                struct_values_conditioning.append("%.20f" % squeeze_scalar(p))
         else:
-            struct_values.append(f'&{prefix}canon_{p_id}')
+            struct_values.append(f"&{prefix}canon_{p_id}")
             if solver_interface.inmemory_preconditioning:
-                struct_values_conditioning.append(f'&{prefix}canon_{p_id}_conditioning')
+                struct_values_conditioning.append(f"&{prefix}canon_{p_id}_conditioning")
 
-    write_struct_def(f, p_ids, canon_casts, struct_values, f'{prefix}Canon_Params', f'Canon_Params_{"" if full else "Gradient_"}t')
-    f.write('\n')
+    write_struct_def(
+        f,
+        p_ids,
+        canon_casts,
+        struct_values,
+        f"{prefix}Canon_Params",
+        f"Canon_Params_{'' if full else 'Gradient_'}t",
+    )
+    f.write("\n")
     if solver_interface.inmemory_preconditioning:
-        write_struct_def(f, p_ids, canon_casts, struct_values_conditioning, f'{prefix}Canon_Params_conditioning', f'Canon_Params_{"" if full else "Gradient_"}t')
-        f.write('\n')
+        write_struct_def(
+            f,
+            p_ids,
+            canon_casts,
+            struct_values_conditioning,
+            f"{prefix}Canon_Params_conditioning",
+            f"Canon_Params_{'' if full else 'Gradient_'}t",
+        )
+        f.write("\n")
 
     # Boolean struct for outdated parameter flags
     if full:
-        f.write('// Struct containing flags for outdated canonical parameters\n')
-        f.write(f'Canon_Outdated_{"" if full else "Gradient_"}t {prefix}Canon_Outdated = {{\n')
+        f.write("// Struct containing flags for outdated canonical parameters\n")
+        f.write(
+            f"Canon_Outdated_{'' if full else 'Gradient_'}t {prefix}Canon_Outdated = {{\n"
+        )
         for p_id in parameter_canon.p.keys():
-            f.write(f'.{p_id} = 1,\n')
-        f.write('};\n\n')
+            f.write(f".{p_id} = 1,\n")
+        f.write("};\n\n")
 
     if full:
         prim_cast = []
-        if any(variable_info.name_to_sym) or not solver_interface.sol_statically_allocated:
-            f.write('// User-defined variables\n')
+        if (
+            any(variable_info.name_to_sym)
+            or not solver_interface.sol_statically_allocated
+        ):
+            f.write("// User-defined variables\n")
         for name, value in variable_info.name_to_init.items():
             if is_mathematical_scalar(value):
-                prim_cast.append('')
+                prim_cast.append("")
             else:
-                prim_cast.append('(cpg_float *) ')
-                if variable_info.name_to_sym[name] or not solver_interface.sol_statically_allocated:
-                    write_vec_def(f, value.flatten(order='F'), prefix + name, 'cpg_float')
-                    f.write('\n')
+                prim_cast.append("(cpg_float *) ")
+                if (
+                    variable_info.name_to_sym[name]
+                    or not solver_interface.sol_statically_allocated
+                ):
+                    write_vec_def(
+                        f, value.flatten(order="F"), prefix + name, "cpg_float"
+                    )
+                    f.write("\n")
 
-        result_prefix = prefix if not solver_interface.ws_statically_allocated_in_solver_code else ''
+        result_prefix = (
+            prefix
+            if not solver_interface.ws_statically_allocated_in_solver_code
+            else ""
+        )
 
-        f.write('// Struct containing primal solution\n')
+        f.write("// Struct containing primal solution\n")
         CPG_Prim_fields = list(variable_info.name_to_init.keys())
         CPG_Prim_values = []
         for name, var in variable_info.name_to_init.items():
             offset = variable_info.name_to_offset[name]
             if is_mathematical_scalar(var):
-                CPG_Prim_values.append('0')
+                CPG_Prim_values.append("0")
             else:
-                if variable_info.name_to_sym[name] or not solver_interface.sol_statically_allocated:
-                    CPG_Prim_values.append('&' + prefix + name)
+                if (
+                    variable_info.name_to_sym[name]
+                    or not solver_interface.sol_statically_allocated
+                ):
+                    CPG_Prim_values.append("&" + prefix + name)
                 else:
-                    CPG_Prim_values.append(f'&{result_prefix}{solver_interface.ws_ptrs.primal_solution} + {offset}')
-        write_struct_def(f, CPG_Prim_fields, prim_cast, CPG_Prim_values, f'{prefix}Prim', 'CPG_Prim_t')
+                    CPG_Prim_values.append(
+                        f"&{result_prefix}{solver_interface.ws_ptrs.primal_solution} + {offset}"
+                    )
+        write_struct_def(
+            f,
+            CPG_Prim_fields,
+            prim_cast,
+            CPG_Prim_values,
+            f"{prefix}Prim",
+            "CPG_Prim_t",
+        )
 
         if len(dual_variable_info.name_to_init) > 0:
             dual_cast = []
             if not solver_interface.sol_statically_allocated:
-                f.write('\n// Dual variables associated with user-defined constraints\n')
+                f.write(
+                    "\n// Dual variables associated with user-defined constraints\n"
+                )
             for name, value in dual_variable_info.name_to_init.items():
                 if is_mathematical_scalar(value):
-                    dual_cast.append('')
+                    dual_cast.append("")
                 else:
-                    dual_cast.append('(cpg_float *) ')
+                    dual_cast.append("(cpg_float *) ")
                     if not solver_interface.sol_statically_allocated:
-                        write_vec_def(f, value.flatten(order='F'), prefix + name, 'cpg_float')
-                        f.write('\n')
+                        write_vec_def(
+                            f, value.flatten(order="F"), prefix + name, "cpg_float"
+                        )
+                        f.write("\n")
 
-            f.write('// Struct containing dual solution\n')
+            f.write("// Struct containing dual solution\n")
             CPG_Dual_fields = dual_variable_info.name_to_init.keys()
             CPG_Dual_values = []
             for name, var in dual_variable_info.name_to_init.items():
                 vec = dual_variable_info.name_to_vec[name]
                 offset = dual_variable_info.name_to_offset[name]
                 if is_mathematical_scalar(var):
-                    CPG_Dual_values.append('0')
+                    CPG_Dual_values.append("0")
                 else:
                     if not solver_interface.sol_statically_allocated:
-                        CPG_Dual_values.append('&' + prefix + name)
+                        CPG_Dual_values.append("&" + prefix + name)
                     else:
-                        CPG_Dual_values.append(f'&{result_prefix}{solver_interface.ws_ptrs.dual_solution.format(dual_var_name=vec)} + {offset}')
-            write_struct_def(f, CPG_Dual_fields, dual_cast, CPG_Dual_values, f'{prefix}Dual', 'CPG_Dual_t')
+                        CPG_Dual_values.append(
+                            f"&{result_prefix}{solver_interface.ws_ptrs.dual_solution.format(dual_var_name=vec)} + {offset}"
+                        )
+            write_struct_def(
+                f,
+                CPG_Dual_fields,
+                dual_cast,
+                CPG_Dual_values,
+                f"{prefix}Dual",
+                "CPG_Dual_t",
+            )
 
-        f.write('\n// Struct containing solver info\n')
-        CPG_Info_fields = ['obj_val', 'iter', 'status', 'pri_res', 'dua_res']
-        CPG_Info_values = ['0', '0', ('0' if solver_interface.status_is_int else '"unknown"'), '0', '0']
-        info_cast = ['', '', '', '', '']
-        write_struct_def(f, CPG_Info_fields, info_cast, CPG_Info_values, f'{prefix}Info', 'CPG_Info_t')
+        f.write("\n// Struct containing solver info\n")
+        CPG_Info_fields = ["obj_val", "iter", "status", "pri_res", "dua_res"]
+        CPG_Info_values = [
+            "0",
+            "0",
+            ("0" if solver_interface.status_is_int else '"unknown"'),
+            "0",
+            "0",
+        ]
+        info_cast = ["", "", "", "", ""]
+        write_struct_def(
+            f,
+            CPG_Info_fields,
+            info_cast,
+            CPG_Info_values,
+            f"{prefix}Info",
+            "CPG_Info_t",
+        )
 
-        f.write('\n// Struct containing solution and info\n')
+        f.write("\n// Struct containing solution and info\n")
         if len(dual_variable_info.name_to_init) > 0:
-            CPG_Result_fields = ['prim', 'dual', 'info']
-            result_cast = ['', '', '']
-            CPG_Result_values = [f'&{prefix}Prim', f'&{prefix}Dual',
-                                f'&{prefix}Info']
+            CPG_Result_fields = ["prim", "dual", "info"]
+            result_cast = ["", "", ""]
+            CPG_Result_values = [f"&{prefix}Prim", f"&{prefix}Dual", f"&{prefix}Info"]
         else:
-            CPG_Result_fields = ['prim', 'info']
-            result_cast = ['', '']
-            CPG_Result_values = [f'&{prefix}Prim', f'&{prefix}Info']
-        write_struct_def(f, CPG_Result_fields, result_cast, CPG_Result_values, f'{prefix}Result', 'CPG_Result_t')
+            CPG_Result_fields = ["prim", "info"]
+            result_cast = ["", ""]
+            CPG_Result_values = [f"&{prefix}Prim", f"&{prefix}Info"]
+        write_struct_def(
+            f,
+            CPG_Result_fields,
+            result_cast,
+            CPG_Result_values,
+            f"{prefix}Result",
+            "CPG_Result_t",
+        )
 
         if solver_interface.stgs_requires_extra_struct_type:
-            f.write('\n// Struct containing solver settings\n')
-            f.write(f'Canon_Settings_t {prefix}Canon_Settings = {{\n')
+            f.write("\n// Struct containing solver settings\n")
+            f.write(f"Canon_Settings_t {prefix}Canon_Settings = {{\n")
             for name, default in solver_interface.stgs_names_to_default.items():
-                f.write(f'.{name} = {default},\n')
-            f.write('};\n')
+                f.write(f".{name} = {default},\n")
+            f.write("};\n")
 
         if not solver_interface.ws_statically_allocated_in_solver_code:
             solver_interface.define_workspace(f, prefix, parameter_canon)
 
 
-def write_workspace_prot(f, configuration, variable_info, dual_variable_info, parameter_info, parameter_canon, solver_interface, full=True):
-    """"
+def write_workspace_prot(
+    f,
+    configuration,
+    variable_info,
+    dual_variable_info,
+    parameter_info,
+    parameter_canon,
+    solver_interface,
+    full=True,
+):
+    """ "
     Write workspace initialization to file
     """
-    
+
     if full:
         prefix = configuration.prefix
     else:
-        prefix = f'gradient_{configuration.prefix}'
+        prefix = f"gradient_{configuration.prefix}"
 
-    write_description(f, 'c', 'Type definitions and variable declarations')
+    write_description(f, "c", "Type definitions and variable declarations")
     if full:
         for header_file in solver_interface.header_files:
-            f.write(f'#include {header_file}\n')
+            f.write(f"#include {header_file}\n")
     else:
         f.write(f'#include "{prefix}workspace.h"\n\n')
 
     if full:
         # definition safeguard
-        f.write('\n#ifndef CPG_TYPES_H\n')
-        f.write('# define CPG_TYPES_H\n\n')
+        f.write("\n#ifndef CPG_TYPES_H\n")
+        f.write("# define CPG_TYPES_H\n\n")
 
-        f.write(f'typedef {solver_interface.numeric_types["float"]} cpg_float;\n')
-        f.write(f'typedef {solver_interface.numeric_types["int"]} cpg_int;\n\n')
+        f.write(f"typedef {solver_interface.numeric_types['float']} cpg_float;\n")
+        f.write(f"typedef {solver_interface.numeric_types['int']} cpg_int;\n\n")
 
         # struct definitions
-        f.write('// Compressed sparse column matrix\n')
-        f.write('typedef struct {\n')
-        f.write('  cpg_int      *p;\n')
-        f.write('  cpg_int      *i;\n')
-        f.write('  cpg_float    *x;\n')
-        f.write('  cpg_int      nnz;\n')
-        f.write('} cpg_csc;\n\n')
+        f.write("// Compressed sparse column matrix\n")
+        f.write("typedef struct {\n")
+        f.write("  cpg_int      *p;\n")
+        f.write("  cpg_int      *i;\n")
+        f.write("  cpg_float    *x;\n")
+        f.write("  cpg_int      nnz;\n")
+        f.write("} cpg_csc;\n\n")
 
         if configuration.unroll:
-            f.write('// User-defined parameters\n')
-            f.write('typedef struct {\n')
+            f.write("// User-defined parameters\n")
+            f.write("typedef struct {\n")
             # single user parameters
             for name, size in parameter_info.name_to_size_usp.items():
                 if size == 1:
-                    s = ''
+                    s = ""
                 else:
-                    s = '*'
-                f.write(f'  cpg_float    {(s+name+";").ljust(9)}   // Your parameter {name}\n')
-            f.write('} CPG_Params_t;\n\n')
+                    s = "*"
+                f.write(
+                    f"  cpg_float    {(s + name + ';').ljust(9)}   // Your parameter {name}\n"
+                )
+            f.write("} CPG_Params_t;\n\n")
 
-    f.write('// Canonical parameters\n')
-    f.write('typedef struct {\n')
+    f.write("// Canonical parameters\n")
+    f.write("typedef struct {\n")
     for p_id in parameter_canon.p.keys():
         if p_id.isupper():
-            f.write(f'  cpg_csc      *{(p_id+";").ljust(8)}   // Canonical parameter {p_id}\n')
+            f.write(
+                f"  cpg_csc      *{(p_id + ';').ljust(8)}   // Canonical parameter {p_id}\n"
+            )
         else:
-            if p_id == 'd':
-                s = ''
+            if p_id == "d":
+                s = ""
             else:
-                s = '*'
-            f.write(f'  cpg_float    {(s+p_id+";").ljust(9)}   // Canonical parameter {p_id}\n')
-    f.write(f'}} Canon_Params_{"" if full else "Gradient_"}t;\n\n')
+                s = "*"
+            f.write(
+                f"  cpg_float    {(s + p_id + ';').ljust(9)}   // Canonical parameter {p_id}\n"
+            )
+    f.write(f"}} Canon_Params_{'' if full else 'Gradient_'}t;\n\n")
 
-    f.write('// Flags indicating outdated canonical parameters\n')
-    f.write('typedef struct {\n')
+    f.write("// Flags indicating outdated canonical parameters\n")
+    f.write("typedef struct {\n")
     for p_id in parameter_canon.p.keys():
-        f.write(f'  int        {(p_id + ";").ljust(10)}    // Bool, if canonical parameter {p_id} outdated\n')
-    f.write(f'}} Canon_Outdated_{"" if full else "Gradient_"}t;\n\n')
+        f.write(
+            f"  int        {(p_id + ';').ljust(10)}    // Bool, if canonical parameter {p_id} outdated\n"
+        )
+    f.write(f"}} Canon_Outdated_{'' if full else 'Gradient_'}t;\n\n")
 
     if full:
-        f.write('// Primal solution\n')
-        f.write('typedef struct {\n')
+        f.write("// Primal solution\n")
+        f.write("typedef struct {\n")
         for name, var in variable_info.name_to_init.items():
             if is_mathematical_scalar(var):
-                s = ''
+                s = ""
             else:
-                s = '*'
-            f.write(f'  cpg_float    {(s + name + ";").ljust(9)}   // Your variable {name}\n')
-        f.write('} CPG_Prim_t;\n\n')
+                s = "*"
+            f.write(
+                f"  cpg_float    {(s + name + ';').ljust(9)}   // Your variable {name}\n"
+            )
+        f.write("} CPG_Prim_t;\n\n")
 
         if len(dual_variable_info.name_to_init) > 0:
-            f.write('// Dual solution\n')
-            f.write('typedef struct {\n')
+            f.write("// Dual solution\n")
+            f.write("typedef struct {\n")
             for name, var in dual_variable_info.name_to_init.items():
                 if is_mathematical_scalar(var):
-                    s = ''
+                    s = ""
                 else:
-                    s = '*'
-                f.write(f'  cpg_float    {(s + name + ";").ljust(9)}   // Your dual variable for constraint {name}\n')
-            f.write('} CPG_Dual_t;\n\n')
+                    s = "*"
+                f.write(
+                    f"  cpg_float    {(s + name + ';').ljust(9)}   // Your dual variable for constraint {name}\n"
+                )
+            f.write("} CPG_Dual_t;\n\n")
 
-        f.write('// Solver information\n')
-        f.write('typedef struct {\n')
-        f.write('  cpg_float    obj_val;    // Objective function value\n')
-        f.write('  cpg_int      iter;       // Number of iterations\n')
-        f.write(f'  {"cpg_int      status;     " if solver_interface.status_is_int else "char         *status;    "}// Solver status\n')
-        f.write('  cpg_float    pri_res;    // Primal residual\n')
-        f.write('  cpg_float    dua_res;    // Dual residual\n')
-        f.write('} CPG_Info_t;\n\n')
+        f.write("// Solver information\n")
+        f.write("typedef struct {\n")
+        f.write("  cpg_float    obj_val;    // Objective function value\n")
+        f.write("  cpg_int      iter;       // Number of iterations\n")
+        f.write(
+            f"  {'cpg_int      status;     ' if solver_interface.status_is_int else 'char         *status;    '}// Solver status\n"
+        )
+        f.write("  cpg_float    pri_res;    // Primal residual\n")
+        f.write("  cpg_float    dua_res;    // Dual residual\n")
+        f.write("} CPG_Info_t;\n\n")
 
-        f.write('// Solution and solver information\n')
-        f.write('typedef struct {\n')
-        f.write('  CPG_Prim_t *prim;        // Primal solution\n')
+        f.write("// Solution and solver information\n")
+        f.write("typedef struct {\n")
+        f.write("  CPG_Prim_t *prim;        // Primal solution\n")
         if len(dual_variable_info.name_to_init) > 0:
-            f.write('  CPG_Dual_t *dual;        // Dual solution\n')
-        f.write('  CPG_Info_t *info;        // Solver info\n')
-        f.write('} CPG_Result_t;\n\n')
+            f.write("  CPG_Dual_t *dual;        // Dual solution\n")
+        f.write("  CPG_Info_t *info;        // Solver info\n")
+        f.write("} CPG_Result_t;\n\n")
 
         if solver_interface.stgs_requires_extra_struct_type:
-            f.write('// Solver settings\n')
-            f.write('typedef struct {\n')
+            f.write("// Solver settings\n")
+            f.write("typedef struct {\n")
             for name, typ in solver_interface.stgs_names_to_type.items():
-                f.write(f'  {typ.ljust(11)}{name};\n')
-            f.write('} Canon_Settings_t;\n\n')
+                f.write(f"  {typ.ljust(11)}{name};\n")
+            f.write("} Canon_Settings_t;\n\n")
 
     if full:
-        f.write('#endif // ifndef CPG_TYPES_H\n')
+        f.write("#endif // ifndef CPG_TYPES_H\n")
 
     if configuration.unroll and full:
-        f.write('\n// User-defined parameters\n')
+        f.write("\n// User-defined parameters\n")
         for name, value in parameter_info.writable.items():
             if not is_mathematical_scalar(value):
-                write_vec_prot(f, value, f'{prefix}{name}', 'cpg_float')
-        f.write('\n// Struct containing all user-defined parameters\n')
-        write_struct_prot(f, f'{prefix}Params', 'CPG_Params_t')
+                write_vec_prot(f, value, f"{prefix}{name}", "cpg_float")
+        f.write("\n// Struct containing all user-defined parameters\n")
+        write_struct_prot(f, f"{prefix}Params", "CPG_Params_t")
     else:
         if full:
-            f.write('\n// Vector containing flattened user-defined parameters\n')
-            write_vec_prot(f, parameter_info.flat_usp, f'{prefix}params_vec', 'cpg_float')
-        f.write('\n// Sparse mappings from user-defined to canonical parameters\n')
+            f.write("\n// Vector containing flattened user-defined parameters\n")
+            write_vec_prot(
+                f, parameter_info.flat_usp, f"{prefix}params_vec", "cpg_float"
+            )
+        f.write("\n// Sparse mappings from user-defined to canonical parameters\n")
         for p_id, mapping in parameter_canon.p_id_to_mapping.items():
             if parameter_canon.p_id_to_changes[p_id]:
-                write_mat_prot(f, mapping, f'{prefix}canon_{p_id}_map')
+                write_mat_prot(f, mapping, f"{prefix}canon_{p_id}_map")
 
-    f.write('\n// Canonical parameters\n')
+    f.write("\n// Canonical parameters\n")
     for p_id, p in parameter_canon.p.items():
-        if p_id != 'd':
-            write_param_prot(f, p, p_id, f'{prefix}', '')
+        if p_id != "d":
+            write_param_prot(f, p, p_id, f"{prefix}", "")
             if solver_interface.inmemory_preconditioning:
-                write_param_prot(f, p, p_id, f'{prefix}', '_conditioning')
+                write_param_prot(f, p, p_id, f"{prefix}", "_conditioning")
 
-    f.write('\n// Struct containing canonical parameters\n')
-    write_struct_prot(f, f'{prefix}Canon_Params', f'Canon_Params_{"" if full else "Gradient_"}t')
+    f.write("\n// Struct containing canonical parameters\n")
+    write_struct_prot(
+        f, f"{prefix}Canon_Params", f"Canon_Params_{'' if full else 'Gradient_'}t"
+    )
     if solver_interface.inmemory_preconditioning:
-        write_struct_prot(f, f'{prefix}Canon_Params_conditioning', f'Canon_Params_{"" if full else "Gradient_"}t')
+        write_struct_prot(
+            f,
+            f"{prefix}Canon_Params_conditioning",
+            f"Canon_Params_{'' if full else 'Gradient_'}t",
+        )
 
     if full:
-        f.write('\n// Struct containing flags for outdated canonical parameters\n')
-        f.write(f'extern Canon_Outdated_{"" if full else "Gradient_"}t {prefix}Canon_Outdated;\n')
+        f.write("\n// Struct containing flags for outdated canonical parameters\n")
+        f.write(
+            f"extern Canon_Outdated_{'' if full else 'Gradient_'}t {prefix}Canon_Outdated;\n"
+        )
 
     if full:
-        if any(variable_info.name_to_sym.values()) or not solver_interface.sol_statically_allocated:
-            f.write('\n// User-defined variables\n')
+        if (
+            any(variable_info.name_to_sym.values())
+            or not solver_interface.sol_statically_allocated
+        ):
+            f.write("\n// User-defined variables\n")
             for name, value in variable_info.name_to_init.items():
-                if variable_info.name_to_sym[name] or not solver_interface.sol_statically_allocated:
+                if (
+                    variable_info.name_to_sym[name]
+                    or not solver_interface.sol_statically_allocated
+                ):
                     if not is_mathematical_scalar(value):
-                        write_vec_prot(f, value.flatten(order='F'), f'{prefix}{name}', 'cpg_float')
+                        write_vec_prot(
+                            f, value.flatten(order="F"), f"{prefix}{name}", "cpg_float"
+                        )
 
         if not solver_interface.sol_statically_allocated:
-            f.write('\n// Dual variables associated with user-defined constraints\n')
+            f.write("\n// Dual variables associated with user-defined constraints\n")
             for name, value in dual_variable_info.name_to_init.items():
                 if not is_mathematical_scalar(value):
-                    write_vec_prot(f, value.flatten(order='F'), f'{prefix}{name}', 'cpg_float')
+                    write_vec_prot(
+                        f, value.flatten(order="F"), f"{prefix}{name}", "cpg_float"
+                    )
 
-        f.write('\n// Struct containing primal solution\n')
-        write_struct_prot(f, f'{prefix}Prim', 'CPG_Prim_t')
+        f.write("\n// Struct containing primal solution\n")
+        write_struct_prot(f, f"{prefix}Prim", "CPG_Prim_t")
 
         if len(dual_variable_info.name_to_init) > 0:
-            f.write('\n// Struct containing dual solution\n')
-            write_struct_prot(f, f'{prefix}Dual', 'CPG_Dual_t')
+            f.write("\n// Struct containing dual solution\n")
+            write_struct_prot(f, f"{prefix}Dual", "CPG_Dual_t")
 
-        f.write('\n// Struct containing solver info\n')
-        write_struct_prot(f, f'{prefix}Info', 'CPG_Info_t')
+        f.write("\n// Struct containing solver info\n")
+        write_struct_prot(f, f"{prefix}Info", "CPG_Info_t")
 
-        f.write('\n// Struct containing solution and info\n')
-        write_struct_prot(f, f'{prefix}Result', 'CPG_Result_t')
+        f.write("\n// Struct containing solution and info\n")
+        write_struct_prot(f, f"{prefix}Result", "CPG_Result_t")
 
         if solver_interface.stgs_requires_extra_struct_type:
-            f.write('\n// Struct containing solver settings\n')
-            write_struct_prot(f, f'{prefix}Canon_Settings', 'Canon_Settings_t')
+            f.write("\n// Struct containing solver settings\n")
+            write_struct_prot(f, f"{prefix}Canon_Settings", "Canon_Settings_t")
 
         if not solver_interface.ws_statically_allocated_in_solver_code:
             solver_interface.declare_workspace(f, prefix, parameter_canon)
 
 
-def write_solve_def(f, configuration, variable_info, dual_variable_info, parameter_info, parameter_canon, solver_interface, parameter_canon_gradient=None):
+def write_solve_def(
+    f,
+    configuration,
+    variable_info,
+    dual_variable_info,
+    parameter_info,
+    parameter_canon,
+    solver_interface,
+    parameter_canon_gradient=None,
+):
     """
     Write parameter initialization function to file
     """
 
-    write_description(f, 'c', 'Function definitions')
+    write_description(f, "c", "Function definitions")
     f.write(f'#include "{configuration.prefix}solve.h"\n')
     f.write(f'#include "{configuration.prefix}workspace.h"\n')
-    f.write('\n')
+    f.write("\n")
 
     if not configuration.unroll:
-        f.write('static cpg_int i;\n')
-        f.write('static cpg_int j;\n')
+        f.write("static cpg_int i;\n")
+        f.write("static cpg_int j;\n")
 
     if configuration.unroll and solver_interface.inmemory_preconditioning:
-        f.write('static cpg_int i;\n')
+        f.write("static cpg_int i;\n")
 
-    f.write('\n// Update user-defined parameters\n')
+    f.write("\n// Update user-defined parameters\n")
     if configuration.unroll:
-        for user_p_name, Canon_outdated_names in parameter_canon.user_p_name_to_canon_outdated.items():
+        for (
+            user_p_name,
+            Canon_outdated_names,
+        ) in parameter_canon.user_p_name_to_canon_outdated.items():
             if parameter_info.name_to_size_usp[user_p_name] == 1:
-                f.write(f'void {configuration.prefix}_update_{user_p_name}(cpg_float val){{\n')
-                f.write(f'  {configuration.prefix}Params.{user_p_name} = val;\n')
+                f.write(
+                    f"void {configuration.prefix}_update_{user_p_name}(cpg_float val){{\n"
+                )
+                f.write(f"  {configuration.prefix}Params.{user_p_name} = val;\n")
             else:
-                f.write(f'void {configuration.prefix}update_{user_p_name}(cpg_int idx, cpg_float val){{\n')
-                f.write(f'  {configuration.prefix}Params.{user_p_name}[idx] = val;\n')
+                f.write(
+                    f"void {configuration.prefix}update_{user_p_name}(cpg_int idx, cpg_float val){{\n"
+                )
+                f.write(f"  {configuration.prefix}Params.{user_p_name}[idx] = val;\n")
             for Canon_outdated_name in Canon_outdated_names:
-                f.write(f'  {configuration.prefix}Canon_Outdated.{Canon_outdated_name} = 1;\n')
-            f.write('}\n\n')
+                f.write(
+                    f"  {configuration.prefix}Canon_Outdated.{Canon_outdated_name} = 1;\n"
+                )
+            f.write("}\n\n")
     else:
         for base_col, name in parameter_info.col_to_name_usp.items():
             Canon_outdated_names = parameter_canon.user_p_name_to_canon_outdated[name]
             if parameter_info.name_to_size_usp[name] == 1:
-                f.write(f'void {configuration.prefix}update_{name}(cpg_float val){{\n')
-                f.write(f'  {configuration.prefix}params_vec[%d] = val;\n' % base_col)
+                f.write(f"void {configuration.prefix}update_{name}(cpg_float val){{\n")
+                f.write(f"  {configuration.prefix}params_vec[%d] = val;\n" % base_col)
             else:
-                f.write(f'void {configuration.prefix}update_{name}(cpg_int idx, cpg_float val){{\n')
-                f.write(f'  {configuration.prefix}params_vec[idx+{base_col}] = val;\n')
+                f.write(
+                    f"void {configuration.prefix}update_{name}(cpg_int idx, cpg_float val){{\n"
+                )
+                f.write(f"  {configuration.prefix}params_vec[idx+{base_col}] = val;\n")
             for Canon_outdated_name in Canon_outdated_names:
-                f.write(f'  {configuration.prefix}Canon_Outdated.{Canon_outdated_name} = 1;\n')
-            f.write('}\n\n')
+                f.write(
+                    f"  {configuration.prefix}Canon_Outdated.{Canon_outdated_name} = 1;\n"
+                )
+            f.write("}\n\n")
 
-    f.write('// Map user-defined to canonical parameters\n')
+    f.write("// Map user-defined to canonical parameters\n")
 
     for p_id, mapping in parameter_canon.p_id_to_mapping.items():
         if parameter_canon.p_id_to_changes[p_id]:
-            f.write(f'void {configuration.prefix}canonicalize_{p_id}(){{\n')
-            s = '->x' if p_id.isupper() else ''
+            f.write(f"void {configuration.prefix}canonicalize_{p_id}(){{\n")
+            s = "->x" if p_id.isupper() else ""
             if configuration.unroll:
-                write_canonicalize_explicit(f, p_id, s, mapping, parameter_info.col_to_name_usp,
-                                            parameter_info.name_to_size_usp, configuration.prefix)
+                write_canonicalize_explicit(
+                    f,
+                    p_id,
+                    s,
+                    mapping,
+                    parameter_info.col_to_name_usp,
+                    parameter_info.name_to_size_usp,
+                    configuration.prefix,
+                )
             else:
                 write_canonicalize(f, p_id, s, mapping, configuration.prefix)
-            f.write('}\n\n')
+            f.write("}\n\n")
 
-    result_prefix = configuration.prefix if not solver_interface.ws_statically_allocated_in_solver_code else ''
+    result_prefix = (
+        configuration.prefix
+        if not solver_interface.ws_statically_allocated_in_solver_code
+        else ""
+    )
     prim_str = result_prefix + solver_interface.ws_ptrs.primal_solution
     dual_str = result_prefix + solver_interface.ws_ptrs.dual_solution
 
     if solver_interface.ret_prim_func_exists(variable_info):
-        f.write('// Retrieve primal solution in terms of user-defined variables\n')
-        f.write(f'void {configuration.prefix}retrieve_prim(){{\n')
+        f.write("// Retrieve primal solution in terms of user-defined variables\n")
+        f.write(f"void {configuration.prefix}retrieve_prim(){{\n")
         for var_name, indices in variable_info.name_to_indices.items():
             if len(indices) == 1:
-                f.write(f'  {configuration.prefix}Prim.{var_name} = {prim_str}[%d];\n' % indices[0])
-            elif variable_info.name_to_sym[var_name] or not solver_interface.sol_statically_allocated:
+                f.write(
+                    f"  {configuration.prefix}Prim.{var_name} = {prim_str}[%d];\n"
+                    % indices[0]
+                )
+            elif (
+                variable_info.name_to_sym[var_name]
+                or not solver_interface.sol_statically_allocated
+            ):
                 for i, idx in enumerate(indices):
-                    f.write(f'  {configuration.prefix}Prim.{var_name}[%d] = {prim_str}[%d];\n' % (i, idx))
-        f.write('}\n\n')
+                    f.write(
+                        f"  {configuration.prefix}Prim.{var_name}[%d] = {prim_str}[%d];\n"
+                        % (i, idx)
+                    )
+        f.write("}\n\n")
 
     if solver_interface.ret_dual_func_exists(dual_variable_info):
-        f.write('// Retrieve dual solution in terms of user-defined constraints\n')
-        f.write(f'void {configuration.prefix}retrieve_dual(){{\n')
-        for var_name, (canonical_var_name, indices) in dual_variable_info.name_to_indices.items():
+        f.write("// Retrieve dual solution in terms of user-defined constraints\n")
+        f.write(f"void {configuration.prefix}retrieve_dual(){{\n")
+        for var_name, (
+            canonical_var_name,
+            indices,
+        ) in dual_variable_info.name_to_indices.items():
             if len(indices) == 1:
-                f.write(f'  {configuration.prefix}Dual.{var_name} = {dual_str.format(dual_var_name=canonical_var_name)}[%d];\n' % indices[0])
+                f.write(
+                    f"  {configuration.prefix}Dual.{var_name} = {dual_str.format(dual_var_name=canonical_var_name)}[%d];\n"
+                    % indices[0]
+                )
             elif not solver_interface.sol_statically_allocated:
                 for i, idx in enumerate(indices):
-                    f.write(f'  {configuration.prefix}Dual.{var_name}[%d] = {dual_str.format(dual_var_name=canonical_var_name)}[%d];\n' % (i, idx))
-        f.write('}\n\n')
+                    f.write(
+                        f"  {configuration.prefix}Dual.{var_name}[%d] = {dual_str.format(dual_var_name=canonical_var_name)}[%d];\n"
+                        % (i, idx)
+                    )
+        f.write("}\n\n")
 
-    f.write('// Retrieve solver info\n')
-    f.write(f'void {configuration.prefix}retrieve_info(){{\n')
-    f.write(f'  {configuration.prefix}Info.obj_val = {"-" if parameter_canon.is_maximization else ""}({result_prefix}{solver_interface.ws_ptrs.objective_value}{" + " + configuration.prefix + "Canon_Params.d" if parameter_canon.nonzero_d else ""});\n')
-    f.write(f'  {configuration.prefix}Info.iter = {result_prefix}{solver_interface.ws_ptrs.iterations};\n')
-    f.write(f'  {configuration.prefix}Info.status = {result_prefix}{solver_interface.ws_ptrs.status};\n')
-    f.write(f'  {configuration.prefix}Info.pri_res = {result_prefix}{solver_interface.ws_ptrs.primal_residual};\n')
-    f.write(f'  {configuration.prefix}Info.dua_res = {result_prefix}{solver_interface.ws_ptrs.dual_residual};\n')
-    f.write('}\n\n')
-    
+    f.write("// Retrieve solver info\n")
+    f.write(f"void {configuration.prefix}retrieve_info(){{\n")
+    f.write(
+        f"  {configuration.prefix}Info.obj_val = {'-' if parameter_canon.is_maximization else ''}({result_prefix}{solver_interface.ws_ptrs.objective_value}{' + ' + configuration.prefix + 'Canon_Params.d' if parameter_canon.nonzero_d else ''});\n"
+    )
+    f.write(
+        f"  {configuration.prefix}Info.iter = {result_prefix}{solver_interface.ws_ptrs.iterations};\n"
+    )
+    f.write(
+        f"  {configuration.prefix}Info.status = {result_prefix}{solver_interface.ws_ptrs.status};\n"
+    )
+    f.write(
+        f"  {configuration.prefix}Info.pri_res = {result_prefix}{solver_interface.ws_ptrs.primal_residual};\n"
+    )
+    f.write(
+        f"  {configuration.prefix}Info.dua_res = {result_prefix}{solver_interface.ws_ptrs.dual_residual};\n"
+    )
+    f.write("}\n\n")
+
     if solver_interface.inmemory_preconditioning:
-        f.write('// Copy canonical parameters for preconditioning\n')
+        f.write("// Copy canonical parameters for preconditioning\n")
         for p_id, size in parameter_canon.p_id_to_size.items():
-            if p_id != 'd':
-                f.write(f'void {configuration.prefix}copy_{p_id}(){{\n')
+            if p_id != "d":
+                f.write(f"void {configuration.prefix}copy_{p_id}(){{\n")
                 if size == 1:
-                    f.write(f'  {configuration.prefix}Canon_Params_conditioning.{p_id} = {configuration.prefix}Canon_Params.{p_id};\n')
+                    f.write(
+                        f"  {configuration.prefix}Canon_Params_conditioning.{p_id} = {configuration.prefix}Canon_Params.{p_id};\n"
+                    )
                 elif size > 1:
-                    f.write(f'  for (i=0; i<{size}; i++){{\n')
+                    f.write(f"  for (i=0; i<{size}; i++){{\n")
                     if p_id.isupper():
-                        f.write(f'    {configuration.prefix}Canon_Params_conditioning.{p_id}->x[i] = {configuration.prefix}Canon_Params.{p_id}->x[i];\n')
+                        f.write(
+                            f"    {configuration.prefix}Canon_Params_conditioning.{p_id}->x[i] = {configuration.prefix}Canon_Params.{p_id}->x[i];\n"
+                        )
                     else:
-                        f.write(f'    {configuration.prefix}Canon_Params_conditioning.{p_id}[i] = {configuration.prefix}Canon_Params.{p_id}[i];\n')
-                    f.write('  }\n')
-                f.write('}\n\n')
-        f.write(f'void {configuration.prefix}copy_all(){{\n')
+                        f.write(
+                            f"    {configuration.prefix}Canon_Params_conditioning.{p_id}[i] = {configuration.prefix}Canon_Params.{p_id}[i];\n"
+                        )
+                    f.write("  }\n")
+                f.write("}\n\n")
+        f.write(f"void {configuration.prefix}copy_all(){{\n")
         for p_id in parameter_canon.p.keys():
-            if p_id != 'd':
-                f.write(f'  {configuration.prefix}copy_{p_id}();\n')
-        f.write('}\n\n')
-        
-    f.write('// Solve via canonicalization, canonical solve, retrieval\n')
-    f.write(f'void {configuration.prefix}solve(){{\n')
-    f.write('  // Canonicalize if necessary\n')
+            if p_id != "d":
+                f.write(f"  {configuration.prefix}copy_{p_id}();\n")
+        f.write("}\n\n")
+
+    f.write("// Solve via canonicalization, canonical solve, retrieval\n")
+    f.write(f"void {configuration.prefix}solve(){{\n")
+    f.write("  // Canonicalize if necessary\n")
 
     for p_id, changes in parameter_canon.p_id_to_changes.items():
         if changes:
-            f.write(f'  if ({configuration.prefix}Canon_Outdated.{p_id}) {{\n')
-            f.write(f'    {configuration.prefix}canonicalize_{p_id}();\n')
-            f.write('  }\n')
+            f.write(f"  if ({configuration.prefix}Canon_Outdated.{p_id}) {{\n")
+            f.write(f"    {configuration.prefix}canonicalize_{p_id}();\n")
+            f.write("  }\n")
 
     pus = solver_interface.parameter_update_structure
-    write_update_structure(f, configuration, parameter_canon, pus, *analyze_pus(pus, parameter_canon.p_id_to_changes))
+    write_update_structure(
+        f,
+        configuration,
+        parameter_canon,
+        pus,
+        *analyze_pus(pus, parameter_canon.p_id_to_changes),
+    )
 
     if solver_interface.stgs_dynamically_allocated:
         for name in solver_interface.stgs_names_to_type.keys():
-            f.write(f'  {configuration.prefix}{solver_interface.ws_ptrs.settings.format(setting_name=name)} = {configuration.prefix}Canon_Settings.{name};\n')
+            f.write(
+                f"  {configuration.prefix}{solver_interface.ws_ptrs.settings.format(setting_name=name)} = {configuration.prefix}Canon_Settings.{name};\n"
+            )
 
-    f.write(f'  // Solve with {configuration.solver_name}\n')
-    f.write(f'  {solver_interface.solve_function_call.format(prefix=configuration.prefix)};\n')
+    f.write(f"  // Solve with {configuration.solver_name}\n")
+    f.write(
+        f"  {solver_interface.solve_function_call.format(prefix=configuration.prefix)};\n"
+    )
 
-    f.write('  // Retrieve results\n')
+    f.write("  // Retrieve results\n")
     if solver_interface.ret_prim_func_exists(variable_info):
-        f.write(f'  {configuration.prefix}retrieve_prim();\n')
+        f.write(f"  {configuration.prefix}retrieve_prim();\n")
     if solver_interface.ret_dual_func_exists(dual_variable_info):
-        f.write(f'  {configuration.prefix}retrieve_dual();\n')
-    f.write(f'  {configuration.prefix}retrieve_info();\n')
+        f.write(f"  {configuration.prefix}retrieve_dual();\n")
+    f.write(f"  {configuration.prefix}retrieve_info();\n")
 
-    f.write('  // Reset flags for outdated canonical parameters\n')
+    f.write("  // Reset flags for outdated canonical parameters\n")
     for p_id, changes in parameter_canon.p_id_to_changes.items():
         if changes:
-            f.write(f'  {configuration.prefix}Canon_Outdated.{p_id} = 0;\n')
+            f.write(f"  {configuration.prefix}Canon_Outdated.{p_id} = 0;\n")
 
-    f.write('}\n\n')
+    f.write("}\n\n")
 
-    f.write('// Update solver settings\n')
-    f.write(f'void {configuration.prefix}set_solver_default_settings(){{\n')
+    f.write("// Update solver settings\n")
+    f.write(f"void {configuration.prefix}set_solver_default_settings(){{\n")
     if solver_interface.stgs_reset_function is not None:
-        f.write(f'  {solver_interface.stgs_reset_function["name"]}({solver_interface.stgs_reset_function["ptr"] if solver_interface.stgs_reset_function["ptr"] is not None else "&" + configuration.prefix + "Canon_Settings"});\n')
+        f.write(
+            f"  {solver_interface.stgs_reset_function['name']}({solver_interface.stgs_reset_function['ptr'] if solver_interface.stgs_reset_function['ptr'] is not None else '&' + configuration.prefix + 'Canon_Settings'});\n"
+        )
     else:
         for name, value in solver_interface.stgs_names_to_default.items():
-            f.write(f'  {configuration.prefix}Canon_Settings.{name} = {value};\n')
-    f.write('}\n')
+            f.write(f"  {configuration.prefix}Canon_Settings.{name} = {value};\n")
+    f.write("}\n")
     for name, typ in solver_interface.stgs_names_to_type.items():
-        f.write(f'\nvoid {configuration.prefix}set_solver_{name}({typ} {name}_new){{\n')
+        f.write(f"\nvoid {configuration.prefix}set_solver_{name}({typ} {name}_new){{\n")
         if solver_interface.stgs_direct_write_ptr is not None:
-            f.write(f'  {solver_interface.stgs_direct_write_ptr}->{name} = {name}_new;\n')
+            f.write(
+                f"  {solver_interface.stgs_direct_write_ptr}->{name} = {name}_new;\n"
+            )
         else:
-            f.write(f'  {configuration.prefix}Canon_Settings.{name} = {name}_new;\n')
-        f.write('}\n')
+            f.write(f"  {configuration.prefix}Canon_Settings.{name} = {name}_new;\n")
+        f.write("}\n")
 
 
-def write_solve_prot(f, configuration, variable_info, dual_variable_info, parameter_info, parameter_canon, solver_interface, parameter_canon_gradient=None):
+def write_solve_prot(
+    f,
+    configuration,
+    variable_info,
+    dual_variable_info,
+    parameter_info,
+    parameter_canon,
+    solver_interface,
+    parameter_canon_gradient=None,
+):
     """
     Write function declarations to file
     """
 
-    write_description(f, 'c', 'Function declarations')
+    write_description(f, "c", "Function declarations")
     f.write(f'#include "{configuration.prefix}workspace.h"\n')
 
-    f.write('\n// Update user-defined parameter values\n')
+    f.write("\n// Update user-defined parameter values\n")
     for name, size in parameter_info.name_to_size_usp.items():
         if size == 1:
-            f.write(f'extern void {configuration.prefix}update_{name}(cpg_float val);\n')
+            f.write(
+                f"extern void {configuration.prefix}update_{name}(cpg_float val);\n"
+            )
         else:
-            f.write(f'extern void {configuration.prefix}update_{name}(cpg_int idx, cpg_float val);\n')
+            f.write(
+                f"extern void {configuration.prefix}update_{name}(cpg_int idx, cpg_float val);\n"
+            )
 
-    f.write('\n// Map user-defined to canonical parameters\n')
+    f.write("\n// Map user-defined to canonical parameters\n")
     for p_id, changes in parameter_canon.p_id_to_changes.items():
         if changes:
-            f.write(f'extern void {configuration.prefix}canonicalize_{p_id}();\n')
+            f.write(f"extern void {configuration.prefix}canonicalize_{p_id}();\n")
 
     if solver_interface.ret_prim_func_exists(variable_info):
-        f.write('\n// Retrieve primal solution in terms of user-defined variables\n')
-        f.write(f'extern void {configuration.prefix}retrieve_prim();\n')
+        f.write("\n// Retrieve primal solution in terms of user-defined variables\n")
+        f.write(f"extern void {configuration.prefix}retrieve_prim();\n")
 
     if solver_interface.ret_dual_func_exists(dual_variable_info):
-        f.write('\n// Retrieve dual solution in terms of user-defined constraints\n')
-        f.write(f'extern void {configuration.prefix}retrieve_dual();\n')
+        f.write("\n// Retrieve dual solution in terms of user-defined constraints\n")
+        f.write(f"extern void {configuration.prefix}retrieve_dual();\n")
 
-    f.write('\n// Retrieve solver information\n')
-    f.write(f'extern void {configuration.prefix}retrieve_info();\n')
+    f.write("\n// Retrieve solver information\n")
+    f.write(f"extern void {configuration.prefix}retrieve_info();\n")
 
     if solver_interface.inmemory_preconditioning:
-        f.write('\n// Copy canonical parameters for preconditioning\n')
+        f.write("\n// Copy canonical parameters for preconditioning\n")
         for p_id in parameter_canon.p_id_to_size.keys():
-            if p_id != 'd':
-                f.write(f'extern void {configuration.prefix}copy_{p_id}();\n')
-        f.write(f'extern void {configuration.prefix}copy_all();\n')
+            if p_id != "d":
+                f.write(f"extern void {configuration.prefix}copy_{p_id}();\n")
+        f.write(f"extern void {configuration.prefix}copy_all();\n")
 
-    f.write('\n// Solve via canonicalization, canonical solve, retrieval\n')
-    f.write(f'extern void {configuration.prefix}solve();\n')
+    f.write("\n// Solve via canonicalization, canonical solve, retrieval\n")
+    f.write(f"extern void {configuration.prefix}solve();\n")
 
-    f.write('\n// Update solver settings\n')
-    f.write(f'extern void {configuration.prefix}set_solver_default_settings();\n')
+    f.write("\n// Update solver settings\n")
+    f.write(f"extern void {configuration.prefix}set_solver_default_settings();\n")
     for name, typ in solver_interface.stgs_names_to_type.items():
-        f.write(f'extern void {configuration.prefix}set_solver_{name}({typ} {name}_new);\n')
+        f.write(
+            f"extern void {configuration.prefix}set_solver_{name}({typ} {name}_new);\n"
+        )
 
 
 def replace_cmake_data(cmake_data, configuration):
@@ -1085,12 +1358,12 @@ def replace_cmake_data(cmake_data, configuration):
     """
 
     now = datetime.now()
-    cmake_data = cmake_data.replace('%DATE', now.strftime("on %B %d, %Y at %H:%M:%S"))
-    cmake_data = cmake_data.replace('cpg_include', configuration.prefix + 'include')
-    cmake_data = cmake_data.replace('cpg_head', configuration.prefix + 'head')
-    cmake_data = cmake_data.replace('cpg_workspace', configuration.prefix + 'workspace')
-    cmake_data = cmake_data.replace('cpg_solve', configuration.prefix + 'solve')
-    return cmake_data.replace('cpg_src', configuration.prefix + 'src')
+    cmake_data = cmake_data.replace("%DATE", now.strftime("on %B %d, %Y at %H:%M:%S"))
+    cmake_data = cmake_data.replace("cpg_include", configuration.prefix + "include")
+    cmake_data = cmake_data.replace("cpg_head", configuration.prefix + "head")
+    cmake_data = cmake_data.replace("cpg_workspace", configuration.prefix + "workspace")
+    cmake_data = cmake_data.replace("cpg_solve", configuration.prefix + "solve")
+    return cmake_data.replace("cpg_src", configuration.prefix + "src")
 
 
 def write_canon_cmake(f, name_parent_scope, solver_interface):
@@ -1099,221 +1372,292 @@ def write_canon_cmake(f, name_parent_scope, solver_interface):
     """
 
     if len(solver_interface.cmake_headers) > 0:
-        f.write('\nfile(\n  GLOB\n  SOLVER_HEAD')
+        f.write("\nfile(\n  GLOB\n  SOLVER_HEAD")
         for h in solver_interface.cmake_headers:
-            f.write('\n  ' + h)
-        f.write(')\n')
-        f.write(f'\nset({name_parent_scope}_head ${{SOLVER_HEAD}} PARENT_SCOPE)\n')
+            f.write("\n  " + h)
+        f.write(")\n")
+        f.write(f"\nset({name_parent_scope}_head ${{SOLVER_HEAD}} PARENT_SCOPE)\n")
     if len(solver_interface.cmake_sources) > 0:
-        f.write('\nfile(\n  GLOB\n  SOLVER_SRC')
+        f.write("\nfile(\n  GLOB\n  SOLVER_SRC")
         for h in solver_interface.cmake_sources:
-            f.write('\n  ' + h)
-        f.write(')')
-        f.write(f'\nset({name_parent_scope}_src ${{SOLVER_SRC}} PARENT_SCOPE)\n')
+            f.write("\n  " + h)
+        f.write(")")
+        f.write(f"\nset({name_parent_scope}_src ${{SOLVER_SRC}} PARENT_SCOPE)\n")
 
 
-def write_module_def(f, configuration, variable_info, dual_variable_info, parameter_info, solver_interface, gradient_interface):
+def write_module_def(
+    f,
+    configuration,
+    variable_info,
+    dual_variable_info,
+    parameter_info,
+    solver_interface,
+    gradient_interface,
+):
     """
     Write c++ file for pbind11 wrapper
     """
 
-    write_description(f, 'cpp', 'Python binding with nanobind')
-    f.write('#include <nanobind/nanobind.h>\n')
-    f.write('#include <nanobind/stl/array.h>\n')
-    f.write('#include <ctime>\n')
+    write_description(f, "cpp", "Python binding with nanobind")
+    f.write("#include <nanobind/nanobind.h>\n")
+    f.write("#include <nanobind/stl/array.h>\n")
+    f.write("#include <ctime>\n")
     f.write(f'#include "{configuration.prefix[:-1]}.hpp"\n\n')
     f.write('extern "C" {\n')
     f.write(f'    #include "{configuration.prefix}workspace.h"\n')
     f.write(f'    #include "{configuration.prefix}solve.h"\n')
-    f.write('}\n\n')
-    f.write('namespace nb = nanobind;\n\n')
-    if max(
+    f.write("}\n\n")
+    f.write("namespace nb = nanobind;\n\n")
+    if (
+        max(
             max(parameter_info.name_to_size_usp.values(), default=0),
             max(variable_info.name_to_size.values(), default=0),
-            max(dual_variable_info.name_to_size.values(), default=0)
-    ) > 1:
-        f.write('static int i;\n\n')
+            max(dual_variable_info.name_to_size.values(), default=0),
+        )
+        > 1
+    ):
+        f.write("static int i;\n\n")
 
     # cpp function that maps parameters to results
-    f.write(f'{configuration.prefix}Result_cpp_t {configuration.prefix}solve_cpp(struct {configuration.prefix}Updated_cpp_t& CPG_Updated_cpp, '
-            f'struct {configuration.prefix}Params_cpp_t& CPG_Params_cpp){{\n\n')
+    f.write(
+        f"{configuration.prefix}Result_cpp_t {configuration.prefix}solve_cpp(struct {configuration.prefix}Updated_cpp_t& CPG_Updated_cpp, "
+        f"struct {configuration.prefix}Params_cpp_t& CPG_Params_cpp){{\n\n"
+    )
 
-    f.write('    // Pass changed user-defined parameter values to the solver\n')
+    f.write("    // Pass changed user-defined parameter values to the solver\n")
     for name, size in parameter_info.name_to_size_usp.items():
-        f.write(f'    if (CPG_Updated_cpp.{name}) {{\n')
+        f.write(f"    if (CPG_Updated_cpp.{name}) {{\n")
         if size == 1:
-            f.write(f'        {configuration.prefix}update_{name}(CPG_Params_cpp.{name});\n')
+            f.write(
+                f"        {configuration.prefix}update_{name}(CPG_Params_cpp.{name});\n"
+            )
         else:
-            f.write(f'        for(i=0; i<{size}; i++) {{\n')
-            f.write(f'            {configuration.prefix}update_{name}(i, CPG_Params_cpp.{name}[i]);\n')
-            f.write(f'        }}\n')
-        f.write('    }\n')
+            f.write(f"        for(i=0; i<{size}; i++) {{\n")
+            f.write(
+                f"            {configuration.prefix}update_{name}(i, CPG_Params_cpp.{name}[i]);\n"
+            )
+            f.write("        }\n")
+        f.write("    }\n")
 
     # perform ASA procedure
-    f.write('\n    // Solve\n')
-    f.write('    std::clock_t ASA_start = std::clock();\n')
-    f.write(f'    {configuration.prefix}solve();\n')
-    f.write('    std::clock_t ASA_end = std::clock();\n\n')
+    f.write("\n    // Solve\n")
+    f.write("    std::clock_t ASA_start = std::clock();\n")
+    f.write(f"    {configuration.prefix}solve();\n")
+    f.write("    std::clock_t ASA_end = std::clock();\n\n")
 
     # arrange and return results
-    f.write('    // Arrange and return results\n')
+    f.write("    // Arrange and return results\n")
 
-    f.write(f'    {configuration.prefix}Prim_cpp_t CPG_Prim_cpp {{}};\n')
+    f.write(f"    {configuration.prefix}Prim_cpp_t CPG_Prim_cpp {{}};\n")
     for name, var in variable_info.name_to_init.items():
         if is_mathematical_scalar(var):
-            f.write(f'    CPG_Prim_cpp.{name} = {configuration.prefix}Prim.{name};\n')
+            f.write(f"    CPG_Prim_cpp.{name} = {configuration.prefix}Prim.{name};\n")
         else:
-            f.write(f'    for(i=0; i<{var.size}; i++) {{\n')
-            f.write(f'        CPG_Prim_cpp.{name}[i] = {configuration.prefix}Prim.{name}[i];\n')
-            f.write('    }\n')
+            f.write(f"    for(i=0; i<{var.size}; i++) {{\n")
+            f.write(
+                f"        CPG_Prim_cpp.{name}[i] = {configuration.prefix}Prim.{name}[i];\n"
+            )
+            f.write("    }\n")
 
     if len(dual_variable_info.name_to_init) > 0:
-        f.write(f'    {configuration.prefix}Dual_cpp_t CPG_Dual_cpp {{}};\n')
+        f.write(f"    {configuration.prefix}Dual_cpp_t CPG_Dual_cpp {{}};\n")
         for name, var in dual_variable_info.name_to_init.items():
             if is_mathematical_scalar(var):
-                f.write(f'    CPG_Dual_cpp.{name} = {configuration.prefix}Dual.{name};\n')
+                f.write(
+                    f"    CPG_Dual_cpp.{name} = {configuration.prefix}Dual.{name};\n"
+                )
             else:
-                f.write(f'    for(i=0; i<{var.size}; i++) {{\n')
-                f.write(f'        CPG_Dual_cpp.{name}[i] = {configuration.prefix}Dual.{name}[i];\n')
-                f.write('    }\n')
+                f.write(f"    for(i=0; i<{var.size}; i++) {{\n")
+                f.write(
+                    f"        CPG_Dual_cpp.{name}[i] = {configuration.prefix}Dual.{name}[i];\n"
+                )
+                f.write("    }\n")
 
-    f.write(f'    {configuration.prefix}Info_cpp_t CPG_Info_cpp {{}};\n')
-    for field in ['obj_val', 'iter', 'status', 'pri_res', 'dua_res']:
-        f.write(f'    CPG_Info_cpp.{field} = {configuration.prefix}Info.{field};\n')
-    f.write('    CPG_Info_cpp.time = 1.0 * (ASA_end - ASA_start) / CLOCKS_PER_SEC;\n')
-    f.write(f'    {configuration.prefix}Result_cpp_t CPG_Result_cpp {{}};\n')
-    f.write('    CPG_Result_cpp.prim = CPG_Prim_cpp;\n')
+    f.write(f"    {configuration.prefix}Info_cpp_t CPG_Info_cpp {{}};\n")
+    for field in ["obj_val", "iter", "status", "pri_res", "dua_res"]:
+        f.write(f"    CPG_Info_cpp.{field} = {configuration.prefix}Info.{field};\n")
+    f.write("    CPG_Info_cpp.time = 1.0 * (ASA_end - ASA_start) / CLOCKS_PER_SEC;\n")
+    f.write(f"    {configuration.prefix}Result_cpp_t CPG_Result_cpp {{}};\n")
+    f.write("    CPG_Result_cpp.prim = CPG_Prim_cpp;\n")
     if len(dual_variable_info.name_to_init) > 0:
-        f.write('    CPG_Result_cpp.dual = CPG_Dual_cpp;\n')
-    f.write('    CPG_Result_cpp.info = CPG_Info_cpp;\n')
+        f.write("    CPG_Result_cpp.dual = CPG_Dual_cpp;\n")
+    f.write("    CPG_Result_cpp.info = CPG_Info_cpp;\n")
 
     # return
-    f.write('    return CPG_Result_cpp;\n\n')
-    f.write('}\n\n')
-    
+    f.write("    return CPG_Result_cpp;\n\n")
+    f.write("}\n\n")
+
     # module
-    f.write(f'NB_MODULE({configuration.prefix}solver, m) {{\n\n')
+    f.write(f"NB_MODULE({configuration.prefix}solver, m) {{\n\n")
 
-    f.write(f'    nb::class_<{configuration.prefix}Params_cpp_t>(m, "{configuration.prefix}params")\n')
-    f.write('            .def(nb::init<>())\n')
+    f.write(
+        f'    nb::class_<{configuration.prefix}Params_cpp_t>(m, "{configuration.prefix}params")\n'
+    )
+    f.write("            .def(nb::init<>())\n")
     for name in parameter_info.name_to_size_usp.keys():
-        f.write(f'            .def_rw("{name}", &{configuration.prefix}Params_cpp_t::{name})\n')
-    f.write('            ;\n\n')
+        f.write(
+            f'            .def_rw("{name}", &{configuration.prefix}Params_cpp_t::{name})\n'
+        )
+    f.write("            ;\n\n")
 
-    f.write(f'    nb::class_<{configuration.prefix}Updated_cpp_t>(m, "{configuration.prefix}updated")\n')
-    f.write('            .def(nb::init<>())\n')
+    f.write(
+        f'    nb::class_<{configuration.prefix}Updated_cpp_t>(m, "{configuration.prefix}updated")\n'
+    )
+    f.write("            .def(nb::init<>())\n")
     for name in parameter_info.name_to_size_usp.keys():
-        f.write(f'            .def_rw("{name}", &{configuration.prefix}Updated_cpp_t::{name})\n')
-    f.write('            ;\n\n')
+        f.write(
+            f'            .def_rw("{name}", &{configuration.prefix}Updated_cpp_t::{name})\n'
+        )
+    f.write("            ;\n\n")
 
-    f.write(f'    nb::class_<{configuration.prefix}Prim_cpp_t>(m, "{configuration.prefix}prim")\n')
-    f.write('            .def(nb::init<>())\n')
+    f.write(
+        f'    nb::class_<{configuration.prefix}Prim_cpp_t>(m, "{configuration.prefix}prim")\n'
+    )
+    f.write("            .def(nb::init<>())\n")
     for name in variable_info.name_to_init.keys():
-        f.write(f'            .def_rw("{name}", &{configuration.prefix}Prim_cpp_t::{name})\n')
-    f.write('            ;\n\n')
+        f.write(
+            f'            .def_rw("{name}", &{configuration.prefix}Prim_cpp_t::{name})\n'
+        )
+    f.write("            ;\n\n")
 
     if len(dual_variable_info.name_to_init) > 0:
-        f.write(f'    nb::class_<{configuration.prefix}Dual_cpp_t>(m, "{configuration.prefix}dual")\n')
-        f.write('            .def(nb::init<>())\n')
+        f.write(
+            f'    nb::class_<{configuration.prefix}Dual_cpp_t>(m, "{configuration.prefix}dual")\n'
+        )
+        f.write("            .def(nb::init<>())\n")
         for name in dual_variable_info.name_to_init.keys():
-            f.write(f'            .def_rw("{name}", &{configuration.prefix}Dual_cpp_t::{name})\n')
-        f.write('            ;\n\n')
+            f.write(
+                f'            .def_rw("{name}", &{configuration.prefix}Dual_cpp_t::{name})\n'
+            )
+        f.write("            ;\n\n")
 
-    f.write(f'    nb::class_<{configuration.prefix}Info_cpp_t>(m, "{configuration.prefix}info")\n')
-    f.write('            .def(nb::init<>())\n')
-    f.write(f'            .def_rw("obj_val", &{configuration.prefix}Info_cpp_t::obj_val)\n')
+    f.write(
+        f'    nb::class_<{configuration.prefix}Info_cpp_t>(m, "{configuration.prefix}info")\n'
+    )
+    f.write("            .def(nb::init<>())\n")
+    f.write(
+        f'            .def_rw("obj_val", &{configuration.prefix}Info_cpp_t::obj_val)\n'
+    )
     f.write(f'            .def_rw("iter", &{configuration.prefix}Info_cpp_t::iter)\n')
-    f.write(f'            .def_rw("status", &{configuration.prefix}Info_cpp_t::status)\n')
-    f.write(f'            .def_rw("pri_res", &{configuration.prefix}Info_cpp_t::pri_res)\n')
-    f.write(f'            .def_rw("dua_res", &{configuration.prefix}Info_cpp_t::dua_res)\n')
+    f.write(
+        f'            .def_rw("status", &{configuration.prefix}Info_cpp_t::status)\n'
+    )
+    f.write(
+        f'            .def_rw("pri_res", &{configuration.prefix}Info_cpp_t::pri_res)\n'
+    )
+    f.write(
+        f'            .def_rw("dua_res", &{configuration.prefix}Info_cpp_t::dua_res)\n'
+    )
     f.write(f'            .def_rw("time", &{configuration.prefix}Info_cpp_t::time)\n')
-    f.write('            ;\n\n')
+    f.write("            ;\n\n")
 
-    f.write(f'    nb::class_<{configuration.prefix}Result_cpp_t>(m, "{configuration.prefix}result")\n')
-    f.write('            .def(nb::init<>())\n')
-    f.write(f'            .def_rw("cpg_prim", &{configuration.prefix}Result_cpp_t::prim)\n')
+    f.write(
+        f'    nb::class_<{configuration.prefix}Result_cpp_t>(m, "{configuration.prefix}result")\n'
+    )
+    f.write("            .def(nb::init<>())\n")
+    f.write(
+        f'            .def_rw("cpg_prim", &{configuration.prefix}Result_cpp_t::prim)\n'
+    )
     if len(dual_variable_info.name_to_init) > 0:
-        f.write(f'            .def_rw("cpg_dual", &{configuration.prefix}Result_cpp_t::dual)\n')
-    f.write(f'            .def_rw("cpg_info", &{configuration.prefix}Result_cpp_t::info)\n')
-    f.write('            ;\n\n')
+        f.write(
+            f'            .def_rw("cpg_dual", &{configuration.prefix}Result_cpp_t::dual)\n'
+        )
+    f.write(
+        f'            .def_rw("cpg_info", &{configuration.prefix}Result_cpp_t::info)\n'
+    )
+    f.write("            ;\n\n")
 
     f.write(f'    m.def("solve", &{configuration.prefix}solve_cpp);\n\n')
-    f.write(f'    m.def("set_solver_default_settings", &{configuration.prefix}set_solver_default_settings);\n')
+    f.write(
+        f'    m.def("set_solver_default_settings", &{configuration.prefix}set_solver_default_settings);\n'
+    )
     for name in solver_interface.stgs_names_to_type.keys():
-        f.write(f'    m.def("set_solver_{name}", &{configuration.prefix}set_solver_{name});\n')
+        f.write(
+            f'    m.def("set_solver_{name}", &{configuration.prefix}set_solver_{name});\n'
+        )
 
-    f.write('\n}\n')
+    f.write("\n}\n")
 
 
-def write_module_prot(f, configuration, parameter_info, variable_info, dual_variable_info, solver_interface, gradient_interface):
+def write_module_prot(
+    f,
+    configuration,
+    parameter_info,
+    variable_info,
+    dual_variable_info,
+    solver_interface,
+    gradient_interface,
+):
     """
     Write c++ file for nanobind wrapper
     """
 
-    write_description(f, 'cpp', 'Declarations for Python binding with nanobind')
+    write_description(f, "cpp", "Declarations for Python binding with nanobind")
 
-    f.write('#include <array>\n\n')
+    f.write("#include <array>\n\n")
 
     # cpp struct containing user-defined parameters
-    f.write('// User-defined parameters\n')
-    f.write(f'struct {configuration.prefix}Params_cpp_t {{\n')
+    f.write("// User-defined parameters\n")
+    f.write(f"struct {configuration.prefix}Params_cpp_t {{\n")
     for name, size in parameter_info.name_to_size_usp.items():
-        array_decl = f'std::array<double, {size}>' if size > 1 else 'double'
-        f.write(f'    {array_decl} {name};\n')
-    f.write('};\n\n')
+        array_decl = f"std::array<double, {size}>" if size > 1 else "double"
+        f.write(f"    {array_decl} {name};\n")
+    f.write("};\n\n")
 
     # cpp struct containing update flags for user-defined parameters
-    f.write('// Flags for updated user-defined parameters\n')
-    f.write(f'struct {configuration.prefix}Updated_cpp_t {{\n')
+    f.write("// Flags for updated user-defined parameters\n")
+    f.write(f"struct {configuration.prefix}Updated_cpp_t {{\n")
     for name in parameter_info.name_to_size_usp.keys():
-        f.write(f'    bool {name};\n')
-    f.write('};\n\n')
+        f.write(f"    bool {name};\n")
+    f.write("};\n\n")
 
     # cpp struct containing primal variables
-    f.write(f'// Primal solution\n')
-    f.write(f'struct {configuration.prefix}Prim_cpp_t {{\n')
+    f.write("// Primal solution\n")
+    f.write(f"struct {configuration.prefix}Prim_cpp_t {{\n")
     for name, var in variable_info.name_to_init.items():
         if is_mathematical_scalar(var):
-            f.write(f'    double {name};\n')
+            f.write(f"    double {name};\n")
         else:
-            f.write(f'    std::array<double, {var.size}> {name};\n')
-    f.write('};\n\n')
+            f.write(f"    std::array<double, {var.size}> {name};\n")
+    f.write("};\n\n")
 
     # cpp struct containing dual variables
     if len(dual_variable_info.name_to_init) > 0:
-        f.write('// Dual solution\n')
-        f.write(f'struct {configuration.prefix}Dual_cpp_t {{\n')
+        f.write("// Dual solution\n")
+        f.write(f"struct {configuration.prefix}Dual_cpp_t {{\n")
         for name, var in dual_variable_info.name_to_init.items():
             if is_mathematical_scalar(var):
-                f.write(f'    double {name};\n')
+                f.write(f"    double {name};\n")
             else:
-                f.write(f'    std::array<double, {var.size}> {name};\n')
-        f.write('};\n\n')
-        
+                f.write(f"    std::array<double, {var.size}> {name};\n")
+        f.write("};\n\n")
+
     # cpp struct containing info on results
-    f.write('// Solver information\n')
-    f.write(f'struct {configuration.prefix}Info_cpp_t {{\n')
-    f.write('    double obj_val;\n')
-    f.write('    int iter;\n')
-    f.write(f'    { "int" if solver_interface.status_is_int else "char*"} status;\n')
-    f.write('    double pri_res;\n')
-    f.write('    double dua_res;\n')
-    f.write('    double time;\n')
-    f.write('};\n\n')
+    f.write("// Solver information\n")
+    f.write(f"struct {configuration.prefix}Info_cpp_t {{\n")
+    f.write("    double obj_val;\n")
+    f.write("    int iter;\n")
+    f.write(f"    {'int' if solver_interface.status_is_int else 'char*'} status;\n")
+    f.write("    double pri_res;\n")
+    f.write("    double dua_res;\n")
+    f.write("    double time;\n")
+    f.write("};\n\n")
 
     # cpp struct containing objective value and user-defined variables
-    f.write('// Solution and solver information\n')
-    f.write(f'struct {configuration.prefix}Result_cpp_t {{\n')
-    f.write(f'    {configuration.prefix}Prim_cpp_t prim;\n')
+    f.write("// Solution and solver information\n")
+    f.write(f"struct {configuration.prefix}Result_cpp_t {{\n")
+    f.write(f"    {configuration.prefix}Prim_cpp_t prim;\n")
     if len(dual_variable_info.name_to_init) > 0:
-        f.write(f'    {configuration.prefix}Dual_cpp_t dual;\n')
-    f.write(f'    {configuration.prefix}Info_cpp_t info;\n')
-    f.write('};\n\n')
+        f.write(f"    {configuration.prefix}Dual_cpp_t dual;\n")
+    f.write(f"    {configuration.prefix}Info_cpp_t info;\n")
+    f.write("};\n\n")
 
     # cpp function that maps parameters to results
-    f.write(f'// Main solve function\n')
-    f.write(f'{configuration.prefix}Result_cpp_t {configuration.prefix}solve_cpp(struct {configuration.prefix}Updated_cpp_t& CPG_Updated_cpp, '
-            f'struct {configuration.prefix}Params_cpp_t& CPG_Params_cpp);\n')
+    f.write("// Main solve function\n")
+    f.write(
+        f"{configuration.prefix}Result_cpp_t {configuration.prefix}solve_cpp(struct {configuration.prefix}Updated_cpp_t& CPG_Updated_cpp, "
+        f"struct {configuration.prefix}Params_cpp_t& CPG_Params_cpp);\n"
+    )
 
 
 def replace_setup_data(text):
@@ -1323,224 +1667,299 @@ def replace_setup_data(text):
 
     # description
     now = datetime.now()
-    return text.replace('%DATE', now.strftime("on %B %d, %Y at %H:%M:%S"))
+    return text.replace("%DATE", now.strftime("on %B %d, %Y at %H:%M:%S"))
 
 
-def write_method(f, configuration, variable_info, dual_variable_info, parameter_info, solver_interface, gradient_interface):
+def write_method(
+    f,
+    configuration,
+    variable_info,
+    dual_variable_info,
+    parameter_info,
+    solver_interface,
+    gradient_interface,
+):
     """
     Write function to be registered as custom CVXPY solve method
     """
 
-    write_description(f, 'py', 'Custom solve method for CVXPY interface')
-    f.write('import time\n')
-    f.write('import warnings\n')
-    f.write('import numpy as np\n')
-    f.write('from cvxpy.reductions import Solution\n')
-    f.write('from cvxpy.problems.problem import SolverStats\n')
-    f.write(f'from ambisolvers import {configuration.prefix}solver\n\n\n')
+    write_description(f, "py", "Custom solve method for CVXPY interface")
+    f.write("import time\n")
+    f.write("import warnings\n")
+    f.write("import numpy as np\n")
+    f.write("from cvxpy.reductions import Solution\n")
+    f.write("from cvxpy.problems.problem import SolverStats\n")
+    f.write(f"from ambisolvers import {configuration.prefix}solver\n\n\n")
 
-    f.write(f'standard_settings_names = {solver_interface.stgs_translation}\n\n\n')
-    
-    f.write('def squeeze_scalar(val):\n')
-    f.write('    if isinstance(val, np.ndarray):\n')
-    f.write('        val = val.squeeze()\n')
-    f.write('        if val.shape == ():\n')
-    f.write('            return val.item()\n')
-    f.write('    return val\n\n\n')
+    f.write(f"standard_settings_names = {solver_interface.stgs_translation}\n\n\n")
 
-    f.write('def solve(prob, updated_params=None, **kwargs):\n\n')
-    f.write('    # set flags for updated parameters\n')
-    f.write(f'    upd = {configuration.prefix}solver.{configuration.prefix}updated()\n')
-    f.write('    if updated_params is None:\n')
-    p_list_string = ', '.join([f'"{name}"' for name in parameter_info.name_to_size_usp.keys()])
-    f.write(f'        updated_params = [{p_list_string}]\n')
-    f.write('    for p in updated_params:\n')
-    f.write('        try:\n')
-    f.write('            setattr(upd, p, True)\n')
-    f.write('        except AttributeError:\n')
+    f.write("def squeeze_scalar(val):\n")
+    f.write("    if isinstance(val, np.ndarray):\n")
+    f.write("        val = val.squeeze()\n")
+    f.write("        if val.shape == ():\n")
+    f.write("            return val.item()\n")
+    f.write("    return val\n\n\n")
+
+    f.write("def solve(prob, updated_params=None, **kwargs):\n\n")
+    f.write("    # set flags for updated parameters\n")
+    f.write(f"    upd = {configuration.prefix}solver.{configuration.prefix}updated()\n")
+    f.write("    if updated_params is None:\n")
+    p_list_string = ", ".join(
+        [f'"{name}"' for name in parameter_info.name_to_size_usp.keys()]
+    )
+    f.write(f"        updated_params = [{p_list_string}]\n")
+    f.write("    for p in updated_params:\n")
+    f.write("        try:\n")
+    f.write("            setattr(upd, p, True)\n")
+    f.write("        except AttributeError:\n")
     f.write('            raise AttributeError(f"{p} is not a parameter.")\n\n')
 
-    f.write('    # set solver settings\n')
-    f.write(f'    {configuration.prefix}solver.set_solver_default_settings()\n')
-    f.write('    for key, value in kwargs.items():\n')
-    f.write(f'       getattr({configuration.prefix}solver, f"set_solver_{{key}}")(value)\n')
+    f.write("    # set solver settings\n")
+    f.write(f"    {configuration.prefix}solver.set_solver_default_settings()\n")
+    f.write("    for key, value in kwargs.items():\n")
+    f.write(
+        f'       getattr({configuration.prefix}solver, f"set_solver_{{key}}")(value)\n'
+    )
 
-    f.write('    # set parameter values\n')
-    f.write(f'    par = {configuration.prefix}solver.{configuration.prefix}params()\n')
-    f.write('    param_dict = prob.param_dict\n')
+    f.write("    # set parameter values\n")
+    f.write(f"    par = {configuration.prefix}solver.{configuration.prefix}params()\n")
+    f.write("    param_dict = prob.param_dict\n")
     for name, size in parameter_info.name_to_size_usp.items():
         if name in parameter_info.name_to_sparsity.keys():
             f.write(f'    n = param_dict["{name}"].shape[0]\n')
-            if parameter_info.name_to_sparsity_type[name] == 'diag':
-                f.write(f'    {name}_coordinates = np.arange(0, n**2, n+1)\n')
+            if parameter_info.name_to_sparsity_type[name] == "diag":
+                f.write(f"    {name}_coordinates = np.arange(0, n**2, n+1)\n")
             else:
-                f.write(f'    {name}_coordinates = np.unique([r+c*n for r, c in '
-                        f'zip(*param_dict["{name}"].attributes["sparsity"])])\n')
+                f.write(
+                    f"    {name}_coordinates = np.unique([r+c*n for r, c in "
+                    f'zip(*param_dict["{name}"].attributes["sparsity"])])\n'
+                )
             if size == 1:
-                f.write(f'    par.{name} = param_dict["{name}"].value[{name}_coordinates]\n')
+                f.write(
+                    f'    par.{name} = param_dict["{name}"].value[{name}_coordinates]\n'
+                )
             else:
-                f.write(f'    {name}_value = []\n')
-                f.write(f'    {name}_flat = param_dict["{name}"].value.flatten(order="F")\n')
-                f.write(f'    for coord in {name}_coordinates:\n')
-                f.write(f'        {name}_value.append({name}_flat[coord])\n')
-                f.write(f'        {name}_flat[coord] = 0\n')
-                f.write(f'    if np.sum(np.abs({name}_flat)) > 0:\n')
-                f.write(f'        warnings.warn(\'Ignoring nonzero value outside of sparsity pattern for '
-                        f'parameter {name}!\')\n')
-                f.write(f'    par.{name} = list({name}_value)\n')
+                f.write(f"    {name}_value = []\n")
+                f.write(
+                    f'    {name}_flat = param_dict["{name}"].value.flatten(order="F")\n'
+                )
+                f.write(f"    for coord in {name}_coordinates:\n")
+                f.write(f"        {name}_value.append({name}_flat[coord])\n")
+                f.write(f"        {name}_flat[coord] = 0\n")
+                f.write(f"    if np.sum(np.abs({name}_flat)) > 0:\n")
+                f.write(
+                    f"        warnings.warn('Ignoring nonzero value outside of sparsity pattern for "
+                    f"parameter {name}!')\n"
+                )
+                f.write(f"    par.{name} = list({name}_value)\n")
         else:
             if size == 1:
-                f.write(f'    par.{name} = squeeze_scalar(param_dict["{name}"].value)\n')
+                f.write(
+                    f'    par.{name} = squeeze_scalar(param_dict["{name}"].value)\n'
+                )
             else:
-                f.write(f'    par.{name} = list(param_dict["{name}"].value.flatten(order="F"))\n')
+                f.write(
+                    f'    par.{name} = list(param_dict["{name}"].value.flatten(order="F"))\n'
+                )
 
-    f.write('\n    # solve\n')
-    f.write('    t0 = time.time()\n')
-    f.write(f'    res = {configuration.prefix}solver.solve(upd, par)\n')
-    f.write('    t1 = time.time()\n\n')
+    f.write("\n    # solve\n")
+    f.write("    t0 = time.time()\n")
+    f.write(f"    res = {configuration.prefix}solver.solve(upd, par)\n")
+    f.write("    t1 = time.time()\n\n")
 
-    f.write('    # store solution in problem object\n')
-    f.write('    prob._clear_solution()\n')
+    f.write("    # store solution in problem object\n")
+    f.write("    prob._clear_solution()\n")
     for name, shape in variable_info.name_to_shape.items():
         if len(shape) == 2:
-            f.write(f'    prob.var_dict[\'{name}\'].save_value(np.array(res.cpg_prim.{name}).reshape(({shape[0]}, {shape[1]}), order=\'F\'))\n')
+            f.write(
+                f"    prob.var_dict['{name}'].save_value(np.array(res.cpg_prim.{name}).reshape(({shape[0]}, {shape[1]}), order='F'))\n"
+            )
         elif len(shape) == 1:
-            f.write(f'    prob.var_dict[\'{name}\'].save_value(np.array(res.cpg_prim.{name}).reshape({shape[0]}))\n')
+            f.write(
+                f"    prob.var_dict['{name}'].save_value(np.array(res.cpg_prim.{name}).reshape({shape[0]}))\n"
+            )
         else:
-            f.write(f'    prob.var_dict[\'{name}\'].save_value(np.array(res.cpg_prim.{name}))\n')
+            f.write(
+                f"    prob.var_dict['{name}'].save_value(np.array(res.cpg_prim.{name}))\n"
+            )
 
     for i, (name, shape) in enumerate(dual_variable_info.name_to_shape.items()):
         if len(shape) == 2:
-            f.write(f'    prob.constraints[{i}].save_dual_value(np.array(res.cpg_dual.{name}).reshape(({shape[0]}, {shape[1]}), order=\'F\'))\n')
+            f.write(
+                f"    prob.constraints[{i}].save_dual_value(np.array(res.cpg_dual.{name}).reshape(({shape[0]}, {shape[1]}), order='F'))\n"
+            )
         elif len(shape) == 1:
-            f.write(f'    prob.constraints[{i}].save_dual_value(np.array(res.cpg_dual.{name}).reshape({shape[0]}))\n')
+            f.write(
+                f"    prob.constraints[{i}].save_dual_value(np.array(res.cpg_dual.{name}).reshape({shape[0]}))\n"
+            )
         else:
-            f.write(f'    prob.constraints[{i}].save_dual_value(np.array(res.cpg_dual.{name}))\n')
+            f.write(
+                f"    prob.constraints[{i}].save_dual_value(np.array(res.cpg_dual.{name}))\n"
+            )
 
-    f.write('\n    # store additional solver information in problem object\n')
-    f.write('    prob._status = %s\n' % 'res.cpg_info.status')
-    f.write('    if abs(res.cpg_info.obj_val) == 1e30:\n')
-    f.write('        prob._value = np.sign(res.cpg_info.obj_val) * np.inf\n')
-    f.write('    else:\n')
-    f.write('        prob._value = res.cpg_info.obj_val\n')
-    f.write('    primal_vars = {var.id: var.value for var in prob.variables()}\n')
-    f.write('    dual_vars = {c.id: c.dual_value for c in prob.constraints}\n')
-    f.write('    solver_specific_stats = {\'obj_val\': res.cpg_info.obj_val,\n')
-    f.write('                             \'status\': prob._status,\n')
-    f.write('                             \'iter\': res.cpg_info.iter,\n')
-    f.write('                             \'pri_res\': res.cpg_info.pri_res,\n')
-    f.write('                             \'dua_res\': res.cpg_info.dua_res,\n')
-    f.write('                             \'time\': res.cpg_info.time}\n')
-    f.write('    attr = {\'solve_time\': t1 - t0, \'solver_specific_stats\': solver_specific_stats, '
-            '\'num_iters\': res.cpg_info.iter}\n')
-    f.write('    prob._solution = Solution(prob.status, prob.value, primal_vars, dual_vars, attr)\n')
-    f.write('    results_dict = {\'solver_specific_stats\': solver_specific_stats,\n')
-    f.write('                    \'num_iters\': res.cpg_info.iter,\n')
-    f.write('                    \'solve_time\': t1 - t0}\n')
-    f.write(f'    prob._solver_stats = SolverStats.from_dict(results_dict, \'{configuration.solver_name}\')\n\n')
-    f.write('    return prob.value\n\n\n')
+    f.write("\n    # store additional solver information in problem object\n")
+    f.write("    prob._status = %s\n" % "res.cpg_info.status")
+    f.write("    if abs(res.cpg_info.obj_val) == 1e30:\n")
+    f.write("        prob._value = np.sign(res.cpg_info.obj_val) * np.inf\n")
+    f.write("    else:\n")
+    f.write("        prob._value = res.cpg_info.obj_val\n")
+    f.write("    primal_vars = {var.id: var.value for var in prob.variables()}\n")
+    f.write("    dual_vars = {c.id: c.dual_value for c in prob.constraints}\n")
+    f.write("    solver_specific_stats = {'obj_val': res.cpg_info.obj_val,\n")
+    f.write("                             'status': prob._status,\n")
+    f.write("                             'iter': res.cpg_info.iter,\n")
+    f.write("                             'pri_res': res.cpg_info.pri_res,\n")
+    f.write("                             'dua_res': res.cpg_info.dua_res,\n")
+    f.write("                             'time': res.cpg_info.time}\n")
+    f.write(
+        "    attr = {'solve_time': t1 - t0, 'solver_specific_stats': solver_specific_stats, "
+        "'num_iters': res.cpg_info.iter}\n"
+    )
+    f.write(
+        "    prob._solution = Solution(prob.status, prob.value, primal_vars, dual_vars, attr)\n"
+    )
+    f.write("    results_dict = {'solver_specific_stats': solver_specific_stats,\n")
+    f.write("                    'num_iters': res.cpg_info.iter,\n")
+    f.write("                    'solve_time': t1 - t0}\n")
+    f.write(
+        f"    prob._solver_stats = SolverStats.from_dict(results_dict, '{configuration.solver_name}')\n\n"
+    )
+    f.write("    return prob.value\n\n\n")
 
 
-
-def replace_html_data(text, configuration, variable_info, dual_variable_info, parameter_info, solver_interface):
+def replace_html_data(
+    text,
+    configuration,
+    variable_info,
+    dual_variable_info,
+    parameter_info,
+    solver_interface,
+):
     """
     Replace placeholder strings in html documentation file
     """
 
     # description
     now = datetime.now()
-    text = text.replace('$DATE', now.strftime("on %B %d, %Y at %H:%M:%S"))
+    text = text.replace("$DATE", now.strftime("on %B %d, %Y at %H:%M:%S"))
 
     # param summary
-    text = text.replace('$PARAMS', write_problem_summary(parameter_info.name_to_shape, parameter_info.name_to_size_usp))
+    text = text.replace(
+        "$PARAMS",
+        write_problem_summary(
+            parameter_info.name_to_shape, parameter_info.name_to_size_usp
+        ),
+    )
 
     # primal variable summary
-    text = text.replace('$PRIMALS', write_problem_summary(variable_info.name_to_shape, variable_info.name_to_size))
+    text = text.replace(
+        "$PRIMALS",
+        write_problem_summary(variable_info.name_to_shape, variable_info.name_to_size),
+    )
 
     # dual variable summary
-    text = text.replace('$DUALS', write_problem_summary(dual_variable_info.name_to_shape, dual_variable_info.name_to_size))
+    text = text.replace(
+        "$DUALS",
+        write_problem_summary(
+            dual_variable_info.name_to_shape, dual_variable_info.name_to_size
+        ),
+    )
 
     # code_dir
-    text = text.replace('$CODEDIR', configuration.code_dir)
-    text = text.replace('$CDPYTHON', configuration.code_dir.replace('/', '.').replace('\\', '.'))
+    text = text.replace("$CODEDIR", configuration.code_dir)
+    text = text.replace(
+        "$CDPYTHON", configuration.code_dir.replace("/", ".").replace("\\", ".")
+    )
 
     # solver name and docu
-    text = text.replace('$CPGSOLVERNAME', configuration.solver_name)
-    text = text.replace('$CPGSOLVERDOCUURL', solver_interface.docu)
+    text = text.replace("$CPGSOLVERNAME", configuration.solver_name)
+    text = text.replace("$CPGSOLVERDOCUURL", solver_interface.docu)
 
     # CMake prefix
-    text = text.replace('$CPGCMAKELISTS', configuration.prefix+'cpg')
+    text = text.replace("$CPGCMAKELISTS", configuration.prefix + "cpg")
 
     # type definition of CPG_Prim_t
-    CPGPRIMTYPEDEF = '\n// Struct type with primal solution\n'
-    CPGPRIMTYPEDEF += 'typedef struct {\n'
+    CPGPRIMTYPEDEF = "\n// Struct type with primal solution\n"
+    CPGPRIMTYPEDEF += "typedef struct {\n"
     for name, var in variable_info.name_to_init.items():
         if is_mathematical_scalar(var):
-            s = ''
+            s = ""
         else:
-            s = '*'
-        CPGPRIMTYPEDEF += (f'  cpg_float    {(s + name + ";").ljust(9)}   // Your variable {name}\n')
-    CPGPRIMTYPEDEF += '} CPG_Prim_t;\n'
-    text = text.replace('$CPGPRIMTYPEDEF', CPGPRIMTYPEDEF)
+            s = "*"
+        CPGPRIMTYPEDEF += (
+            f"  cpg_float    {(s + name + ';').ljust(9)}   // Your variable {name}\n"
+        )
+    CPGPRIMTYPEDEF += "} CPG_Prim_t;\n"
+    text = text.replace("$CPGPRIMTYPEDEF", CPGPRIMTYPEDEF)
 
     # type definition of CPG_Dual_t
     if len(dual_variable_info.name_to_init) > 0:
-        CPGDUALTYPEDEF = '\n// Struct type with dual solution\n'
-        CPGDUALTYPEDEF += 'typedef struct {\n'
+        CPGDUALTYPEDEF = "\n// Struct type with dual solution\n"
+        CPGDUALTYPEDEF += "typedef struct {\n"
         for name, var in dual_variable_info.name_to_init.items():
             if is_mathematical_scalar(var):
-                s = ''
+                s = ""
             else:
-                s = '*'
-            CPGDUALTYPEDEF += (f'  cpg_float    {(s + name + ";").ljust(9)}   // Your dual variable for constraint {name}\n')
-        CPGDUALTYPEDEF += '} CPG_Dual_t;\n\n'
+                s = "*"
+            CPGDUALTYPEDEF += f"  cpg_float    {(s + name + ';').ljust(9)}   // Your dual variable for constraint {name}\n"
+        CPGDUALTYPEDEF += "} CPG_Dual_t;\n\n"
     else:
-        CPGDUALTYPEDEF = ''
-    text = text.replace('$CPGDUALTYPEDEF', CPGDUALTYPEDEF)
+        CPGDUALTYPEDEF = ""
+    text = text.replace("$CPGDUALTYPEDEF", CPGDUALTYPEDEF)
 
     # type definition of CPG_Info_t
-    CPGINFOTYPEDEF = '// Struct type with canonical solver information\n'
-    CPGINFOTYPEDEF += 'typedef struct {\n'
-    CPGINFOTYPEDEF += '  cpg_float    obj_val;    // Objective function value\n'
-    CPGINFOTYPEDEF += '  cpg_int      iter;       // Number of iterations\n'
-    CPGINFOTYPEDEF += (f'  {"cpg_int      status;     " if solver_interface.status_is_int else "char         *status;    "}// Solver status\n')
-    CPGINFOTYPEDEF += '  cpg_float    pri_res;    // Primal residual\n'
-    CPGINFOTYPEDEF += '  cpg_float    dua_res;    // Dual residual\n'
-    CPGINFOTYPEDEF += '} CPG_Info_t;\n'
-    text = text.replace('$CPGINFOTYPEDEF', CPGINFOTYPEDEF)
+    CPGINFOTYPEDEF = "// Struct type with canonical solver information\n"
+    CPGINFOTYPEDEF += "typedef struct {\n"
+    CPGINFOTYPEDEF += "  cpg_float    obj_val;    // Objective function value\n"
+    CPGINFOTYPEDEF += "  cpg_int      iter;       // Number of iterations\n"
+    CPGINFOTYPEDEF += f"  {'cpg_int      status;     ' if solver_interface.status_is_int else 'char         *status;    '}// Solver status\n"
+    CPGINFOTYPEDEF += "  cpg_float    pri_res;    // Primal residual\n"
+    CPGINFOTYPEDEF += "  cpg_float    dua_res;    // Dual residual\n"
+    CPGINFOTYPEDEF += "} CPG_Info_t;\n"
+    text = text.replace("$CPGINFOTYPEDEF", CPGINFOTYPEDEF)
 
     # type definition of CPG_Result_t
-    CPGRESULTTYPEDEF = '\n// Struct type with user-defined objective value and solution as fields\n'
-    CPGRESULTTYPEDEF += 'typedef struct {\n'
-    CPGRESULTTYPEDEF += '  CPG_Prim_t *prim;        // Primal solution\n'
+    CPGRESULTTYPEDEF = (
+        "\n// Struct type with user-defined objective value and solution as fields\n"
+    )
+    CPGRESULTTYPEDEF += "typedef struct {\n"
+    CPGRESULTTYPEDEF += "  CPG_Prim_t *prim;        // Primal solution\n"
     if len(dual_variable_info.name_to_init) > 0:
-        CPGRESULTTYPEDEF += '  CPG_Dual_t *dual;        // Dual solution\n'
-    CPGRESULTTYPEDEF += '  CPG_Info_t *info;        // Solver information\n'
-    CPGRESULTTYPEDEF += '} CPG_Result_t;\n'
-    text = text.replace('$CPGRESULTTYPEDEF', CPGRESULTTYPEDEF)
+        CPGRESULTTYPEDEF += "  CPG_Dual_t *dual;        // Dual solution\n"
+    CPGRESULTTYPEDEF += "  CPG_Info_t *info;        // Solver information\n"
+    CPGRESULTTYPEDEF += "} CPG_Result_t;\n"
+    text = text.replace("$CPGRESULTTYPEDEF", CPGRESULTTYPEDEF)
 
     # update declarations
-    CPGUPDATEDECLARATIONS = '\n// Update user-defined parameter values\n'
+    CPGUPDATEDECLARATIONS = "\n// Update user-defined parameter values\n"
     for name, size in parameter_info.name_to_size_usp.items():
         if size == 1:
-            CPGUPDATEDECLARATIONS += f'void {configuration.prefix}cpg_update_{name}(cpg_float value);\n'
+            CPGUPDATEDECLARATIONS += (
+                f"void {configuration.prefix}cpg_update_{name}(cpg_float value);\n"
+            )
         else:
-            CPGUPDATEDECLARATIONS += f'void {configuration.prefix}cpg_update_{name}(cpg_int idx, cpg_float value);\n'
-    text = text.replace('$CPGUPDATEDECLARATIONS', CPGUPDATEDECLARATIONS)
+            CPGUPDATEDECLARATIONS += f"void {configuration.prefix}cpg_update_{name}(cpg_int idx, cpg_float value);\n"
+    text = text.replace("$CPGUPDATEDECLARATIONS", CPGUPDATEDECLARATIONS)
 
     # solve declarations
-    CPGSOLVEDECLARATIONS = '\n// Solve via canonicalization, canonical solve, retrieval\n'
-    CPGSOLVEDECLARATIONS += f'void {configuration.prefix}cpg_solve();\n'
-    text = text.replace('$CPGSOLVEDECLARATIONS', CPGSOLVEDECLARATIONS)
+    CPGSOLVEDECLARATIONS = (
+        "\n// Solve via canonicalization, canonical solve, retrieval\n"
+    )
+    CPGSOLVEDECLARATIONS += f"void {configuration.prefix}cpg_solve();\n"
+    text = text.replace("$CPGSOLVEDECLARATIONS", CPGSOLVEDECLARATIONS)
 
     # settings declarations
-    CPGSETTINGSDECLARATIONS = '\n// Update solver settings\n'
-    CPGSETTINGSDECLARATIONS += f'void {configuration.prefix}cpg_set_solver_default_settings();\n'
-    CPGSETTINGSDECLARATIONS += f'void {configuration.prefix}cpg_set_solver_&lt;setting_name&gt;(&lt;setting_type&gt; &lt;setting_name&gt;_new);\n'
-    CPGSETTINGSDECLARATIONS += '...\n'
-    text = text.replace('$CPGSETTINGSDECLARATIONS', CPGSETTINGSDECLARATIONS)
+    CPGSETTINGSDECLARATIONS = "\n// Update solver settings\n"
+    CPGSETTINGSDECLARATIONS += (
+        f"void {configuration.prefix}cpg_set_solver_default_settings();\n"
+    )
+    CPGSETTINGSDECLARATIONS += f"void {configuration.prefix}cpg_set_solver_&lt;setting_name&gt;(&lt;setting_type&gt; &lt;setting_name&gt;_new);\n"
+    CPGSETTINGSDECLARATIONS += "...\n"
+    text = text.replace("$CPGSETTINGSDECLARATIONS", CPGSETTINGSDECLARATIONS)
 
     # settings list
-    CPGSETTINGSLIST = ', '.join([f'<code>{s}</code>' for s in solver_interface.stgs_names_enabled])
+    CPGSETTINGSLIST = ", ".join(
+        [f"<code>{s}</code>" for s in solver_interface.stgs_names_enabled]
+    )
 
-    return text.replace('$CPGSETTINGSLIST', CPGSETTINGSLIST)
+    return text.replace("$CPGSETTINGSLIST", CPGSETTINGSLIST)

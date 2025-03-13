@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Dict, List
 
-import scipy.sparse as sp
 import numpy as np
+import scipy.sparse as sp
 
 
 @dataclass
