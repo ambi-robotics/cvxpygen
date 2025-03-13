@@ -1449,7 +1449,7 @@ def write_method(f, configuration, variable_info, dual_variable_info, parameter_
     f.write('    # set solver settings\n')
     f.write(f'    {configuration.prefix}solver.set_solver_default_settings()\n')
     f.write('    for key, value in kwargs.items():\n')
-    f.write(f'       setattr({configuration.prefix}solver, f"set_solver_{{key}}", value)\n')
+    f.write(f'       getattr({configuration.prefix}solver, f"set_solver_{{key}}")(value)\n')
 
     f.write('    # set parameter values\n')
     f.write(f'    par = {configuration.prefix}solver.{configuration.prefix}params()\n')
