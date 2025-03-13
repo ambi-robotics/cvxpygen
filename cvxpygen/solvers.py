@@ -14,9 +14,6 @@ from cvxpygen.utils import write_file, read_write_file, write_struct_prot, write
 from cvxpygen.mappings import PrimalVariableInfo, DualVariableInfo, ConstraintInfo, AffineMap, \
     ParameterCanon, WorkspacePointerInfo, UpdatePendingLogic, ParameterUpdateLogic
 
-from cvxpy.reductions.solvers.qp_solvers.osqp_qpif import OSQP
-from cvxpy.reductions.solvers.conic_solvers.scs_conif import SCS
-from cvxpy.reductions.solvers.conic_solvers.ecos_conif import ECOS
 from cvxpy.reductions.solvers.conic_solvers.clarabel_conif import CLARABEL
 
 
